@@ -60,6 +60,7 @@ mcp --> ai : Preview URL\nhttp://127.0.0.1:17432/<id>
 
 ```mermaid "mcp-flow"
 sequenceDiagram
+    actor User
     actor Claude
     participant MCP as mcp.cjs
     participant Kroki as Kroki server
@@ -73,9 +74,9 @@ sequenceDiagram
     MCP->>Store: write <id>.png
     MCP->>Reg: set(id, {filePath, mimeType}) + persist to disk
     MCP-->>Claude: Preview URL http://127.0.0.1:17432/<id>
-    Note over Claude: shares URL with user
-    Claude-->>MCP: user opens link in browser
+    Claude-->>User: shares URL as clickable link
+    User->>HTTP: GET /<id>
     HTTP->>Reg: get(id)
     Reg-->>HTTP: {filePath, mimeType}
-    HTTP-->>Claude: serve PNG from filePath
+    HTTP-->>User: PNG bytes
 ```
