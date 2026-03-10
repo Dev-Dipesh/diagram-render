@@ -1,6 +1,6 @@
 # diagram-render
 
-Kroki-based PlantUML to PNG renderer. Zero runtime dependencies — uses only Node.js built-ins.
+Kroki-based multi-format diagram to PNG renderer. Zero runtime dependencies — uses only Node.js built-ins. Format is detected from the file extension.
 
 ## Project Structure
 
@@ -8,25 +8,28 @@ Kroki-based PlantUML to PNG renderer. Zero runtime dependencies — uses only No
 diagram-render/
 ├── generate.cjs      # renderer script (entry point)
 ├── package.json
-├── puml/             # source diagrams (.puml files go here)
+├── src/              # source diagrams (all supported formats)
 └── diagrams/         # output PNGs (gitignored)
 ```
 
 ## Running
 
 ```bash
-# Render all .puml files
+# Render all files in src/
 npm run render
 
 # Render a single file
-npm run render:one -- my-diagram.puml
+npm run render:one -- flow.puml
+
+# Custom input/output directories
+node generate.cjs -i ./architecture -o ./docs/images
 ```
 
-Requires internet access — rendering is done via `https://kroki.io/plantuml/png`.
+Requires internet access — rendering is done via `https://kroki.io`.
 
 ## Adding Diagrams
 
-Drop `.puml` files into `puml/` and run `npm run render`. Output PNGs land in `diagrams/` with the same base filename.
+Drop source files into `src/` (or any directory, using `-i`) and run `npm run render`. See README.md for the full list of supported extensions and how to add more.
 
 ## Code Quality
 
