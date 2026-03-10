@@ -42,7 +42,6 @@ const path = require("node:path");
 const http = require("node:http");
 const https = require("node:https");
 const readline = require("node:readline");
-const zlib = require("node:zlib");
 const { URL } = require("node:url");
 
 const LOCAL_URL = "http://localhost:8000";
@@ -50,6 +49,18 @@ const PUBLIC_URL = "https://kroki.io";
 
 // Maps file extension -> Kroki diagram type (for individual source files).
 // Full list: https://kroki.io/#support
+// Output format per diagram type. Defaults to "png" for types not listed here.
+// These types only produce SVG — Kroki returns 400 if you request PNG for them.
+const OUTPUT_FORMAT = {
+  bpmn: "svg",
+  bytefield: "svg",
+  excalidraw: "svg",
+  nomnoml: "svg",
+  pikchr: "svg",
+  svgbob: "svg",
+  wavedrom: "svg",
+};
+
 const KROKI_TYPE = {
   // PlantUML
   ".puml": "plantuml",
@@ -278,18 +289,12 @@ function askConfirm(question) {
   });
 }
 
-// Encodes diagram source using Kroki's standard encoding: deflate (raw) + base64url.
-// Kroki's POST endpoint auto-detects encoded vs raw, so this works for all types
-// and is more robust than sending raw text (required for formats like Excalidraw).
-function encodeSource(source) {
-  return zlib.deflateRawSync(Buffer.from(source, "utf8")).toString("base64url");
-}
-
 function krokiRender(source, diagramType, krokiUrl) {
+  const format = OUTPUT_FORMAT[diagramType] ?? "png";
   return new Promise((resolve, reject) => {
-    const url = new URL(`/${diagramType}/png`, krokiUrl);
+    const url = new URL(`/${diagramType}/${format}`, krokiUrl);
     const transport = url.protocol === "https:" ? https : http;
-    const body = Buffer.from(encodeSource(source), "utf8");
+    const body = Buffer.from(source, "utf8");
     const req = transport.request(
       {
         hostname: url.hostname,
@@ -365,7 +370,8 @@ async function renderMarkdownFile(filePath, outDir, krokiUrl) {
   for (const { krokiType, title, source } of diagrams) {
     typeCounts[krokiType] = (typeCounts[krokiType] ?? 0) + 1;
     const n = String(typeCounts[krokiType]).padStart(2, "0");
-    const outName = title ? `${title}.png` : `${krokiType}-${n}.png`;
+    const fmt = OUTPUT_FORMAT[krokiType] ?? "png";
+    const outName = title ? `${title}.${fmt}` : `${krokiType}-${n}.${fmt}`;
     const outputPath = path.join(subDir, outName);
 
     process.stdout.write(`  [${krokiType}] ${outName} ... `);
@@ -485,7 +491,8 @@ async function main() {
       failed += result.failed;
     } else {
       const diagramType = KROKI_TYPE[ext];
-      const outName = `${path.basename(relPath, ext)}.png`;
+      const fmt = OUTPUT_FORMAT[diagramType] ?? "png";
+      const outName = `${path.basename(relPath, ext)}.${fmt}`;
       const outputPath = path.join(fileOutputDir, outName);
       fs.mkdirSync(fileOutputDir, { recursive: true });
       const source = fs.readFileSync(inputPath, "utf8");
