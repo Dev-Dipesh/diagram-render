@@ -317,10 +317,26 @@ function krokiRender(source, diagramType, krokiUrl) {
   });
 }
 
+// Recursively collects all supported files under dir.
+// Returns paths relative to baseDir, sorted alphabetically.
+function collectFiles(dir, baseDir) {
+  const results = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectFiles(fullPath, baseDir));
+    } else if (SUPPORTED_EXTENSIONS.has(path.extname(entry.name))) {
+      results.push(path.relative(baseDir, fullPath));
+    }
+  }
+  return results.sort();
+}
+
 // Renders all diagram code blocks found in a markdown file.
-// Output: outputDir/<mdBasename>/<title>.png  (titled)
-//         outputDir/<mdBasename>/<krokiType>-<N>.png  (untitled)
-async function renderMarkdownFile(filePath, outputDir, krokiUrl) {
+// outDir is the already-resolved output directory for this file's PNGs.
+// Output: outDir/<mdBasename>/<title>.png  (titled)
+//         outDir/<mdBasename>/<krokiType>-<N>.png  (untitled)
+async function renderMarkdownFile(filePath, outDir, krokiUrl) {
   const content = fs.readFileSync(filePath, "utf8");
   const diagrams = parseMarkdownDiagrams(content);
   const mdName = path.basename(filePath, ".md");
@@ -330,7 +346,7 @@ async function renderMarkdownFile(filePath, outputDir, krokiUrl) {
     return { ok: 0, failed: 0 };
   }
 
-  const subDir = path.join(outputDir, mdName);
+  const subDir = path.join(outDir, mdName);
   fs.mkdirSync(subDir, { recursive: true });
 
   // Per-type counters for untitled fallback names
@@ -400,31 +416,27 @@ async function main() {
 
   fs.mkdirSync(outputDir, { recursive: true });
 
-  // Resolve files to render
-  let files;
+  // Collect files to render as paths relative to inputDir.
+  // Sub-directory structure is mirrored to outputDir (e.g. src/public/ → diagrams/public/).
+  let relFiles;
   if (args.file) {
-    const candidate = path.basename(args.file);
-    const ext = path.extname(candidate);
+    const relPath = args.file;
+    const ext = path.extname(relPath);
     if (!SUPPORTED_EXTENSIONS.has(ext)) {
-      console.error(
-        `Unsupported extension: ${ext}\nRun --help to see supported formats.`,
-      );
+      console.error(`Unsupported extension: ${ext}\nRun --help to see supported formats.`);
       process.exit(1);
     }
-    const inputPath = path.join(inputDir, candidate);
+    const inputPath = path.resolve(inputDir, relPath);
     if (!fs.existsSync(inputPath)) {
       console.error(`File not found: ${inputPath}`);
       process.exit(1);
     }
-    files = [candidate];
+    relFiles = [relPath];
   } else {
-    files = fs
-      .readdirSync(inputDir)
-      .filter((f) => SUPPORTED_EXTENSIONS.has(path.extname(f)))
-      .sort((a, b) => a.localeCompare(b));
+    relFiles = collectFiles(inputDir, inputDir);
   }
 
-  if (files.length === 0) {
+  if (relFiles.length === 0) {
     console.log(`No supported diagram files found in: ${inputDir}`);
     return;
   }
@@ -432,22 +444,26 @@ async function main() {
   let ok = 0;
   let failed = 0;
 
-  for (const file of files) {
-    const ext = path.extname(file);
-    const inputPath = path.join(inputDir, file);
+  for (const relPath of relFiles) {
+    const ext = path.extname(relPath);
+    const inputPath = path.resolve(inputDir, relPath);
+    // Mirror sub-directory: src/public/flow.puml → diagrams/public/flow.png
+    const relDir = path.dirname(relPath);
+    const fileOutputDir = relDir === "." ? outputDir : path.join(outputDir, relDir);
 
     if (ext === ".md") {
-      console.log(`[markdown] ${file}`);
-      const result = await renderMarkdownFile(inputPath, outputDir, krokiUrl);
+      console.log(`[markdown] ${relPath}`);
+      const result = await renderMarkdownFile(inputPath, fileOutputDir, krokiUrl);
       ok += result.ok;
       failed += result.failed;
     } else {
       const diagramType = KROKI_TYPE[ext];
-      const outName = `${path.basename(file, ext)}.png`;
-      const outputPath = path.join(outputDir, outName);
+      const outName = `${path.basename(relPath, ext)}.png`;
+      const outputPath = path.join(fileOutputDir, outName);
+      fs.mkdirSync(fileOutputDir, { recursive: true });
       const source = fs.readFileSync(inputPath, "utf8");
 
-      process.stdout.write(`[${diagramType}] ${file} -> ${outName} ... `);
+      process.stdout.write(`[${diagramType}] ${relPath} -> ${path.join(relDir === "." ? "" : relDir, outName)} ... `);
       try {
         const png = await krokiRender(source, diagramType, krokiUrl);
         fs.writeFileSync(outputPath, png);

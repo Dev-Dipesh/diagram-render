@@ -191,15 +191,25 @@ To add a language alias, edit the `MARKDOWN_LANG` map in `generate.cjs`.
 
 ```txt
 diagram-render/
-├── generate.cjs      # renderer script
-├── package.json
-├── src/              # source files — individual diagrams and/or .md files
-└── diagrams/         # output PNGs (gitignored)
-    ├── flow.png              # from src/flow.puml
-    └── architecture/         # from src/architecture.md
-        ├── sequence-overview.png
-        ├── data-flow.png
-        └── mermaid-01.png
+├── generate.cjs        # renderer script
+├── Makefile
+├── docker-compose.yml
+├── src/
+│   ├── public/         # committed — shared diagrams
+│   ├── private/        # gitignored — sensitive diagrams
+│   └── *.puml / *.md   # root-level files also supported
+└── diagrams/           # output mirrors src/ structure
+    ├── public/         # committed
+    └── private/        # gitignored
+```
+
+Sub-directory structure is mirrored from `src/` to `diagrams/` automatically:
+
+```txt
+src/public/flow.puml          →  diagrams/public/flow.png
+src/private/secret.puml       →  diagrams/private/secret.png
+src/public/arch.md            →  diagrams/public/arch/sequence.png
+src/flow.puml                 →  diagrams/flow.png
 ```
 
 ## Local Kroki server
@@ -214,7 +224,8 @@ make restart  # restart containers
 make status   # show container status
 
 make render                        # render all diagrams in src/
-make render FILE=flow.puml         # render a single file
+make render FILE=flow.puml              # render a single file
+make render FILE=public/flow.puml       # render a file in a subdirectory
 make render DIR=./architecture     # render from a custom directory
 make render OUT=./docs/images      # render to a custom output directory
 make render DIR=./arch OUT=./out   # combine options
