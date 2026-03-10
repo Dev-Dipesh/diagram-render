@@ -190,7 +190,7 @@ Containers started by `docker-compose.yml`:
 
 The MCP server exposes diagram rendering as AI tools. It starts an HTTP file server on port 17432 (auto-increments if taken) alongside the MCP stdio transport.
 
-![MCP tool call flow](diagrams/public/architecture/mcp-flow.png)
+![MCP tool call flow](diagrams/public/architecture/mcp-flow.png?v=2)
 
 **Available tools:**
 
