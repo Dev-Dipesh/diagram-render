@@ -438,17 +438,18 @@ async function main() {
   // Sub-directory structure is mirrored to outputDir (e.g. src/public/ → diagrams/public/).
   let relFiles;
   if (args.file) {
-    const relPath = args.file;
-    const ext = path.extname(relPath);
+    const inputPath = path.resolve(args.file);  // resolve from cwd, not inputDir
+    const ext = path.extname(inputPath);
     if (!SUPPORTED_EXTENSIONS.has(ext)) {
       console.error(`Unsupported extension: ${ext}\nRun --help to see supported formats.`);
       process.exit(1);
     }
-    const inputPath = path.resolve(inputDir, relPath);
     if (!fs.existsSync(inputPath)) {
       console.error(`File not found: ${inputPath}`);
       process.exit(1);
     }
+    // Compute relative path from inputDir for output mirroring
+    const relPath = path.relative(inputDir, inputPath);
     relFiles = [relPath];
   } else {
     relFiles = collectFiles(inputDir, inputDir);
