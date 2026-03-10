@@ -5,7 +5,7 @@ Renders diagram source files to PNG using [Kroki](https://kroki.io). No runtime 
 Two input modes:
 
 - **Individual files** — one diagram per file, format detected from extension
-- **Markdown files** — multiple diagrams embedded as fenced code blocks in a single `.md` file, each rendered to a sub-directory
+- **Markdown files** — multiple diagrams embedded as fenced code blocks, each rendered to a sub-directory
 
 ## Quick start
 
@@ -55,50 +55,82 @@ node generate.cjs flow.puml -o ./docs/images
 
 Format is detected from the file extension. Unsupported extensions are skipped.
 
-| Extension              | Kroki type |
-|------------------------|------------|
-| `.puml`, `.plantuml`   | plantuml   |
-| `.mmd`, `.mermaid`     | mermaid    |
-| `.dot`, `.gv`          | graphviz   |
-| `.d2`                  | d2         |
-| `.ditaa`               | ditaa      |
-| `.bob`                 | svgbob     |
-| `.pikchr`              | pikchr     |
+| Extension(s)                    | Kroki type   |
+|---------------------------------|--------------|
+| `.puml`, `.plantuml`            | plantuml     |
+| `.c4puml`                       | c4plantuml   |
+| `.mmd`, `.mermaid`              | mermaid      |
+| `.dot`, `.gv`                   | graphviz     |
+| `.d2`                           | d2           |
+| `.dbml`                         | dbml         |
+| `.ditaa`                        | ditaa        |
+| `.erd`                          | erd          |
+| `.excalidraw`                   | excalidraw   |
+| `.blockdiag`                    | blockdiag    |
+| `.seqdiag`                      | seqdiag      |
+| `.actdiag`                      | actdiag      |
+| `.nwdiag`                       | nwdiag       |
+| `.packetdiag`                   | packetdiag   |
+| `.rackdiag`                     | rackdiag     |
+| `.bpmn`                         | bpmn         |
+| `.bytefield`                    | bytefield    |
+| `.nomnoml`                      | nomnoml      |
+| `.pikchr`                       | pikchr       |
+| `.dsl`                          | structurizr  |
+| `.bob`                          | svgbob       |
+| `.symbolator`                   | symbolator   |
+| `.tikz`                         | tikz         |
+| `.vega`                         | vega         |
+| `.vegalite`                     | vegalite     |
+| `.wavedrom`                     | wavedrom     |
+| `.wireviz`                      | wireviz      |
 
 Output: `diagrams/flow.png` (same base filename as input).
 
-To add a format, edit the `KROKI_TYPE` map at the top of `generate.cjs`:
-
-```js
-const KROKI_TYPE = {
-  ".puml": "plantuml",
-  // add: ".ext": "kroki-type"
-};
-```
-
-Full list of Kroki-supported types: https://kroki.io/#support
+To add a format, edit the `KROKI_TYPE` map in `generate.cjs`. Full list: https://kroki.io/#support
 
 ## Markdown files
 
 Embed diagrams as fenced code blocks using the diagram type as the language name.
-Each block is detected, rendered, and saved individually.
+Each block is rendered individually and saved to a sub-directory named after the `.md` file.
+
+### Title syntax
+
+Add a slug after the language name on the opening fence line. The slug becomes the PNG filename.
 
 ````md
-# My architecture doc
-
-## Sequence
-
-```plantuml
+```plantuml user-flow
 @startuml
 Alice -> Bob: hello
 @enduml
 ```
+````
 
-## Flow
+→ `diagrams/architecture/user-flow.png`
+
+Use hyphens for multi-word titles: `user-flow-diagram`, `db-schema-v2`.
+
+Without a title, files are named by type and sequence number: `plantuml-01.png`, `mermaid-01.png`, etc.
+
+### Example
+
+````md
+# Architecture
+
+```plantuml sequence-overview
+@startuml
+...
+@enduml
+```
+
+```mermaid data-flow
+graph TD
+    A --> B
+```
 
 ```mermaid
-graph TD
-    A --> B --> C
+graph LR
+    X --> Y
 ```
 ````
 
@@ -107,13 +139,42 @@ Output for `src/architecture.md`:
 ```txt
 diagrams/
 └── architecture/
-    ├── plantuml-01.png
-    └── mermaid-01.png
+    ├── sequence-overview.png   ← titled
+    ├── data-flow.png           ← titled
+    └── mermaid-01.png          ← untitled fallback
 ```
 
-Multiple blocks of the same type are numbered sequentially: `plantuml-01.png`, `plantuml-02.png`, etc.
+### Supported code block language names
 
-Supported code block language names: `plantuml`, `puml`, `mermaid`, `dot`, `graphviz`, `d2`, `ditaa`, `svgbob`, `bob`, `pikchr`
+| Language name(s)                        | Kroki type   |
+|-----------------------------------------|--------------|
+| `plantuml`, `puml`                      | plantuml     |
+| `c4plantuml`, `c4`                      | c4plantuml   |
+| `mermaid`                               | mermaid      |
+| `dot`, `graphviz`                       | graphviz     |
+| `d2`                                    | d2           |
+| `dbml`                                  | dbml         |
+| `ditaa`                                 | ditaa        |
+| `erd`                                   | erd          |
+| `excalidraw`                            | excalidraw   |
+| `blockdiag`                             | blockdiag    |
+| `seqdiag`                               | seqdiag      |
+| `actdiag`                               | actdiag      |
+| `nwdiag`                                | nwdiag       |
+| `packetdiag`                            | packetdiag   |
+| `rackdiag`                              | rackdiag     |
+| `bpmn`                                  | bpmn         |
+| `bytefield`                             | bytefield    |
+| `nomnoml`                               | nomnoml      |
+| `pikchr`                                | pikchr       |
+| `structurizr`                           | structurizr  |
+| `svgbob`, `bob`                         | svgbob       |
+| `symbolator`                            | symbolator   |
+| `tikz`, `tex`                           | tikz         |
+| `vega`                                  | vega         |
+| `vegalite`, `vega-lite`                 | vegalite     |
+| `wavedrom`                              | wavedrom     |
+| `wireviz`                               | wireviz      |
 
 To add a language alias, edit the `MARKDOWN_LANG` map in `generate.cjs`.
 
@@ -127,7 +188,8 @@ diagram-render/
 └── diagrams/         # output PNGs (gitignored)
     ├── flow.png              # from src/flow.puml
     └── architecture/         # from src/architecture.md
-        ├── plantuml-01.png
+        ├── sequence-overview.png
+        ├── data-flow.png
         └── mermaid-01.png
 ```
 
@@ -136,3 +198,4 @@ diagram-render/
 - Requires internet access — rendering is done via `https://kroki.io`.
 - `diagrams/` is gitignored. Commit only source files in `src/`.
 - Non-diagram code blocks in `.md` files are silently skipped.
+- Title slugs should be `kebab-case`. Characters outside `[a-zA-Z0-9-_]` are not sanitised — keep slugs simple.

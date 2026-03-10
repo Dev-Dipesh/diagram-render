@@ -6,8 +6,19 @@
  *
  * Supported inputs:
  *   - Individual diagram files: format detected from extension
- *   - Markdown files: fenced code blocks with diagram language names are each
- *     rendered to a sub-directory in the output dir named after the .md file
+ *   - Markdown files: fenced code blocks with a diagram language are each
+ *     rendered to a sub-directory named after the .md file
+ *
+ * Titles (markdown mode):
+ *   Add a slug after the language name on the opening fence line.
+ *   The slug becomes the PNG filename. Use hyphens for multi-word titles.
+ *
+ *     ```plantuml user-flow
+ *     ...
+ *     ```
+ *     → diagrams/notes/user-flow.png
+ *
+ *   Without a title, files are named by type and sequence: plantuml-01.png
  *
  * Usage:
  *   node generate.cjs                          # render all supported files in ./src
@@ -27,31 +38,118 @@ const https = require("node:https");
 // Maps file extension -> Kroki diagram type (for individual source files).
 // Full list: https://kroki.io/#support
 const KROKI_TYPE = {
+  // PlantUML
   ".puml": "plantuml",
   ".plantuml": "plantuml",
+  // C4 with PlantUML
+  ".c4puml": "c4plantuml",
+  // Mermaid
   ".mmd": "mermaid",
   ".mermaid": "mermaid",
+  // GraphViz
   ".dot": "graphviz",
   ".gv": "graphviz",
+  // D2
   ".d2": "d2",
+  // DBML
+  ".dbml": "dbml",
+  // DitAA
   ".ditaa": "ditaa",
-  ".bob": "svgbob",
+  // Erd
+  ".erd": "erd",
+  // Excalidraw
+  ".excalidraw": "excalidraw",
+  // BlockDiag family
+  ".blockdiag": "blockdiag",
+  ".seqdiag": "seqdiag",
+  ".actdiag": "actdiag",
+  ".nwdiag": "nwdiag",
+  ".packetdiag": "packetdiag",
+  ".rackdiag": "rackdiag",
+  // BPMN
+  ".bpmn": "bpmn",
+  // Bytefield
+  ".bytefield": "bytefield",
+  // Nomnoml
+  ".nomnoml": "nomnoml",
+  // Pikchr
   ".pikchr": "pikchr",
+  // Structurizr
+  ".dsl": "structurizr",
+  // Svgbob
+  ".bob": "svgbob",
+  // Symbolator
+  ".symbolator": "symbolator",
+  // TikZ
+  ".tikz": "tikz",
+  // Vega
+  ".vega": "vega",
+  // Vega-Lite
+  ".vegalite": "vegalite",
+  // WaveDrom
+  ".wavedrom": "wavedrom",
+  // WireViz
+  ".wireviz": "wireviz",
 };
 
 // Maps fenced code block language name -> Kroki diagram type (for .md files).
-// Covers common aliases people write in markdown.
+// Includes common aliases people write in markdown.
 const MARKDOWN_LANG = {
+  // PlantUML
   plantuml: "plantuml",
   puml: "plantuml",
+  // C4 with PlantUML
+  c4plantuml: "c4plantuml",
+  c4: "c4plantuml",
+  // Mermaid
   mermaid: "mermaid",
+  // GraphViz
   dot: "graphviz",
   graphviz: "graphviz",
+  // D2
   d2: "d2",
+  // DBML
+  dbml: "dbml",
+  // DitAA
   ditaa: "ditaa",
+  // Erd
+  erd: "erd",
+  // Excalidraw
+  excalidraw: "excalidraw",
+  // BlockDiag family
+  blockdiag: "blockdiag",
+  seqdiag: "seqdiag",
+  actdiag: "actdiag",
+  nwdiag: "nwdiag",
+  packetdiag: "packetdiag",
+  rackdiag: "rackdiag",
+  // BPMN
+  bpmn: "bpmn",
+  // Bytefield
+  bytefield: "bytefield",
+  // Nomnoml
+  nomnoml: "nomnoml",
+  // Pikchr
+  pikchr: "pikchr",
+  // Structurizr
+  structurizr: "structurizr",
+  // Svgbob
   svgbob: "svgbob",
   bob: "svgbob",
-  pikchr: "pikchr",
+  // Symbolator
+  symbolator: "symbolator",
+  // TikZ
+  tikz: "tikz",
+  tex: "tikz",
+  // Vega
+  vega: "vega",
+  // Vega-Lite
+  vegalite: "vegalite",
+  "vega-lite": "vegalite",
+  // WaveDrom
+  wavedrom: "wavedrom",
+  // WireViz
+  wireviz: "wireviz",
 };
 
 const SUPPORTED_EXTENSIONS = new Set([...Object.keys(KROKI_TYPE), ".md"]);
@@ -70,24 +168,25 @@ Options:
   -h, --help           Show this help
 
 Supported individual file formats (auto-detected from extension):
-${Object.entries(KROKI_TYPE)
-  .map(([ext, type]) => `  ${ext.padEnd(12)} -> ${type}`)
+${Object.entries(
+  // Deduplicate by Kroki type for display
+  Object.entries(KROKI_TYPE).reduce((acc, [ext, type]) => {
+    acc[type] = acc[type] ? `${acc[type]}, ${ext}` : ext;
+    return acc;
+  }, {}),
+)
+  .map(([type, exts]) => `  ${exts.padEnd(28)} -> ${type}`)
   .join("\n")}
 
-Markdown (.md) support:
-  Fenced code blocks with a supported language name are each rendered to a PNG.
-  Output goes into a sub-directory named after the .md file.
+Markdown (.md) files:
+  Fenced code blocks with a diagram language are rendered individually.
+  Output goes to a sub-directory named after the .md file.
 
-  Supported code block languages: ${Object.keys(MARKDOWN_LANG).join(", ")}
+  Title syntax — add a slug after the language on the opening fence:
+    \`\`\`plantuml user-flow    →  user-flow.png
+    \`\`\`mermaid               →  mermaid-01.png  (fallback)
 
-  Example markdown:
-    \`\`\`plantuml
-    @startuml
-    Alice -> Bob: hello
-    @enduml
-    \`\`\`
-
-  Output: diagrams/notes/plantuml-01.png
+  Supported language names: ${Object.keys(MARKDOWN_LANG).join(", ")}
 `);
 }
 
@@ -109,15 +208,20 @@ function parseArgs(argv) {
 }
 
 // Extracts fenced code blocks from markdown whose language is a supported diagram type.
-// Returns [{krokiType, source}] in document order.
+// Captures an optional title slug from the info string: ```plantuml user-flow
+// Returns [{krokiType, title, source}] in document order.
 function parseMarkdownDiagrams(content) {
   const results = [];
-  const fence = /^```(\w[\w-]*)\s*\n([\s\S]*?)^```/gm;
+  const fence = /^```([\w-]+)(?:[ \t]+([\w-]+))?\s*\n([\s\S]*?)^```/gm;
   let match;
   while ((match = fence.exec(content)) !== null) {
     const krokiType = MARKDOWN_LANG[match[1].toLowerCase()];
     if (krokiType) {
-      results.push({ krokiType, source: match[2] });
+      results.push({
+        krokiType,
+        title: match[2] ?? null,
+        source: match[3],
+      });
     }
   }
   return results;
@@ -161,7 +265,8 @@ function krokiRender(source, diagramType) {
 }
 
 // Renders all diagram code blocks found in a markdown file.
-// PNGs are saved to outputDir/<mdBasename>/<krokiType>-<N>.png
+// Output: outputDir/<mdBasename>/<title>.png  (titled)
+//         outputDir/<mdBasename>/<krokiType>-<N>.png  (untitled)
 async function renderMarkdownFile(filePath, outputDir) {
   const content = fs.readFileSync(filePath, "utf8");
   const diagrams = parseMarkdownDiagrams(content);
@@ -175,18 +280,18 @@ async function renderMarkdownFile(filePath, outputDir) {
   const subDir = path.join(outputDir, mdName);
   fs.mkdirSync(subDir, { recursive: true });
 
-  // Track per-type counters for output filenames
+  // Per-type counters for untitled fallback names
   const typeCounts = {};
   let ok = 0;
   let failed = 0;
 
-  for (const { krokiType, source } of diagrams) {
+  for (const { krokiType, title, source } of diagrams) {
     typeCounts[krokiType] = (typeCounts[krokiType] ?? 0) + 1;
     const n = String(typeCounts[krokiType]).padStart(2, "0");
-    const outName = `${krokiType}-${n}.png`;
+    const outName = title ? `${title}.png` : `${krokiType}-${n}.png`;
     const outputPath = path.join(subDir, outName);
 
-    process.stdout.write(`  [${krokiType}] block ${n} -> ${mdName}/${outName} ... `);
+    process.stdout.write(`  [${krokiType}] ${outName} ... `);
     try {
       const png = await krokiRender(source, krokiType);
       fs.writeFileSync(outputPath, png);

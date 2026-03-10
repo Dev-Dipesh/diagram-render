@@ -1,8 +1,8 @@
 # Example — multiple diagrams in one markdown file
 
-## Sequence diagram
+## Sequence diagram (titled)
 
-```plantuml
+```plantuml request-flow
 @startuml
 actor User
 participant "Your System" as S
@@ -15,13 +15,20 @@ S --> User: result
 @enduml
 ```
 
-## Flow diagram
+## Flow diagram (titled)
 
-```mermaid
+```mermaid decision-flow
 graph TD
     A[Start] --> B{Decision}
     B -- Yes --> C[Do thing]
     B -- No --> D[Skip]
     C --> E[End]
     D --> E
+```
+
+## Untitled (falls back to type-sequence name)
+
+```mermaid
+graph LR
+    A --> B --> C
 ```
