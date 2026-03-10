@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "diagram-render": {
+      "command": "node",
+      "args": ["mcp.cjs"]
+    }
+  }
+}
