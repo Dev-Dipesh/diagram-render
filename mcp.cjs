@@ -128,15 +128,16 @@ server.registerTool(
     try {
       const data = await krokiRender(source, diagramType, krokiUrl);
       fs.writeFileSync(outputPath, data);
+      const b64 = data.toString("base64");
       return {
         content: [
           {
             type: "text",
-            text: `Rendered ${diagramType} diagram (${fmt}) → ${outputPath}\nKroki server: ${krokiUrl}`,
+            text: `Rendered ${diagramType} diagram (${fmt}) → ${outputPath}\nKroki server: ${krokiUrl}\nDATA_URI: data:${mimeType};base64,${b64}`,
           },
           {
             type: "image",
-            data: data.toString("base64"),
+            data: b64,
             mimeType,
           },
         ],
@@ -228,15 +229,16 @@ server.registerTool(
         const data = await krokiRender(source, diagramType, krokiUrl);
         fs.writeFileSync(outputPath, data);
         const mimeType = fmt === "svg" ? "image/svg+xml" : "image/png";
+        const b64 = data.toString("base64");
         return {
           content: [
             {
               type: "text",
-              text: `Rendered ${diagramType} (${fmt}) → ${outputPath}\nKroki server: ${krokiUrl}`,
+              text: `Rendered ${diagramType} (${fmt}) → ${outputPath}\nKroki server: ${krokiUrl}\nDATA_URI: data:${mimeType};base64,${b64}`,
             },
             {
               type: "image",
-              data: data.toString("base64"),
+              data: b64,
               mimeType,
             },
           ],
