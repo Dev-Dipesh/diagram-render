@@ -41,7 +41,7 @@ Kroki returns error messages as rendered PNG images, not plain text. If a new di
 
 1. **Wrong output format.** Some Kroki types only support SVG, not PNG. Requesting PNG for them returns an error image with a message like `Unsupported output format: png for <type>. Must be one of svg`.
    - Fix: add the type to `OUTPUT_FORMAT` in `generate.cjs` with `"svg"` as the value.
-   - Known SVG-only types already mapped: `excalidraw`, `bpmn`, `bytefield`, `nomnoml`, `pikchr`, `svgbob`, `wavedrom`.
+   - Known SVG-only types already mapped: `d2`, `excalidraw`, `bpmn`, `bytefield`, `nomnoml`, `pikchr`, `svgbob`, `wavedrom`.
    - If a new type fails, check https://kroki.io/#support for its supported output formats.
 
 2. **Wrong POST body encoding.** The Kroki POST endpoint expects the raw diagram source as plain text. Do not deflate/base64url-encode the body — that encoding is only for GET URL parameters. Sending encoded data to POST causes companions (especially JSON-based ones like Excalidraw) to reject the input.
