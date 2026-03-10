@@ -28,15 +28,24 @@
  *   node generate.cjs -o ./docs/images         # custom output directory
  *   node generate.cjs -i ./arch -o ./out       # both
  *   node generate.cjs flow.puml -o ./out       # single file, custom output
- *   node generate.cjs --kroki-url http://localhost:8000  # use local Kroki server
+ *   node generate.cjs --kroki-url <url>          # override Kroki server (skips health check)
  *   node generate.cjs --help                   # show this help
+ *
+ * Server selection (automatic):
+ *   1. Tries local Kroki server at http://localhost:8000
+ *   2. If unavailable, asks whether to fall back to https://kroki.io
+ *   Use --kroki-url to override and skip this logic entirely.
  */
 
 const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const https = require("node:https");
+const readline = require("node:readline");
 const { URL } = require("node:url");
+
+const LOCAL_URL = "http://localhost:8000";
+const PUBLIC_URL = "https://kroki.io";
 
 // Maps file extension -> Kroki diagram type (for individual source files).
 // Full list: https://kroki.io/#support
@@ -168,8 +177,12 @@ Arguments:
 Options:
   -i, --input <dir>        Source directory   (default: ./src)
   -o, --output <dir>       Output directory   (default: ./diagrams)
-  -k, --kroki-url <url>    Kroki server URL   (default: https://kroki.io)
+  -k, --kroki-url <url>    Override Kroki server, skips health check
   -h, --help               Show this help
+
+Server selection (automatic, when --kroki-url is not set):
+  1. Tries local server at ${LOCAL_URL}
+  2. If unavailable, prompts to fall back to ${PUBLIC_URL}
 
 Supported individual file formats (auto-detected from extension):
 ${Object.entries(
@@ -235,6 +248,33 @@ function parseMarkdownDiagrams(content) {
     }
   }
   return results;
+}
+
+// Checks whether a Kroki server is reachable by hitting its /health endpoint.
+// Resolves to true/false — never throws.
+function checkLocalServer(url) {
+  return new Promise((resolve) => {
+    const { hostname, port, protocol } = new URL(url);
+    const transport = protocol === "https:" ? https : http;
+    const req = transport.request(
+      { hostname, port: port || undefined, path: "/health", method: "GET" },
+      (res) => { res.resume(); resolve(res.statusCode === 200); },
+    );
+    req.setTimeout(2000, () => { req.destroy(); resolve(false); });
+    req.on("error", () => resolve(false));
+    req.end();
+  });
+}
+
+// Prompts the user for a yes/no answer. Resolves to true only on "y" / "Y".
+function askConfirm(question) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase() === "y");
+    });
+  });
 }
 
 function krokiRender(source, diagramType, krokiUrl) {
@@ -330,9 +370,28 @@ async function main() {
 
   const inputDir = path.resolve(args.input ?? "src");
   const outputDir = path.resolve(args.output ?? "diagrams");
-  const krokiUrl = args.krokiUrl ?? "https://kroki.io";
 
-  console.log(`Kroki: ${krokiUrl}`);
+  // Resolve which Kroki server to use
+  let krokiUrl;
+  if (args.krokiUrl) {
+    krokiUrl = args.krokiUrl;
+    console.log(`Kroki: ${krokiUrl} (override)`);
+  } else {
+    process.stdout.write(`Kroki: checking ${LOCAL_URL} ... `);
+    const localUp = await checkLocalServer(LOCAL_URL);
+    if (localUp) {
+      krokiUrl = LOCAL_URL;
+      console.log("ok");
+    } else {
+      console.log("unavailable");
+      const fallback = await askConfirm(`Fall back to ${PUBLIC_URL}? [y/N] `);
+      if (!fallback) {
+        console.error(`Aborted. Start the local server with: make up`);
+        process.exit(1);
+      }
+      krokiUrl = PUBLIC_URL;
+    }
+  }
 
   if (!fs.existsSync(inputDir)) {
     console.error(`Input directory not found: ${inputDir}`);

@@ -213,11 +213,24 @@ make restart  # restart containers
 make          # show available commands
 ```
 
-The server starts on `http://localhost:8000`. Then point the script at it:
+The server starts on `http://localhost:8000`. The script checks it automatically on every run — no flags needed:
+
+```
+Kroki: checking http://localhost:8000 ... ok
+```
+
+If the local server is not running, the script asks before falling back to `https://kroki.io`:
+
+```
+Kroki: checking http://localhost:8000 ... unavailable
+Fall back to https://kroki.io? [y/N]
+```
+
+To skip the health check and force a specific server:
 
 ```bash
 node generate.cjs --kroki-url http://localhost:8000
-npm run render -- --kroki-url http://localhost:8000
+node generate.cjs --kroki-url https://kroki.io
 ```
 
 Containers started by `docker-compose.yml`:
@@ -235,6 +248,6 @@ If you only need core types (PlantUML, GraphViz, D2, etc.) and not Mermaid/BPMN/
 
 ## Notes
 
-- By default, rendering uses the public `https://kroki.io`. Use `--kroki-url` to point at a local instance.
+- The script always tries `http://localhost:8000` first. If unavailable it asks before using `https://kroki.io`. Use `--kroki-url` to override and skip the health check.
 - Non-diagram code blocks in `.md` files are silently skipped.
 - Title slugs should be `kebab-case`. Quoted titles may contain spaces but avoid special shell characters.
