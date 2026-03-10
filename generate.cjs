@@ -384,8 +384,26 @@ async function main() {
     return;
   }
 
+  const defaultSrcDir = path.resolve("src");
+  const defaultDiagramsDir = path.resolve("diagrams");
   const inputDir = path.resolve(args.input ?? "src");
-  const outputDir = path.resolve(args.output ?? "diagrams");
+
+  // Derive output dir:
+  // - Explicit OUT → use it directly
+  // - Custom DIR inside src/ with no OUT → mirror to matching diagrams/ subdir
+  //   e.g. DIR=src/public → diagrams/public
+  // - Anything else → diagrams/
+  let outputDir;
+  if (args.output) {
+    outputDir = path.resolve(args.output);
+  } else if (args.input) {
+    const relFromSrc = path.relative(defaultSrcDir, inputDir);
+    outputDir = relFromSrc.startsWith("..")
+      ? defaultDiagramsDir
+      : path.join(defaultDiagramsDir, relFromSrc);
+  } else {
+    outputDir = defaultDiagramsDir;
+  }
 
   // Resolve which Kroki server to use
   let krokiUrl;

@@ -14,11 +14,11 @@ help: ## Show available commands
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Examples:"
-	@echo "  make render                          render all diagrams in src/"
-	@echo "  make render FILE=flow.puml           render a single file"
-	@echo "  make render DIR=./architecture       render from a custom directory"
-	@echo "  make render OUT=./docs/images        render to a custom output directory"
-	@echo "  make render DIR=./arch OUT=./out     combine options"
+	@echo "  make render                              render all diagrams in src/"
+	@echo "  make render FILE=public/flow.puml        render a single file"
+	@echo "  make render DIR=src/public               render src/public → diagrams/public"
+	@echo "  make render DIR=src/private              render src/private → diagrams/private"
+	@echo "  make render DIR=src/public OUT=out/pub   override output directory"
 	@echo ""
 
 render: ## Render diagrams — FILE=, DIR=, OUT= are optional

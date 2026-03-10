@@ -223,12 +223,11 @@ make down     # stop and remove containers
 make restart  # restart containers
 make status   # show container status
 
-make render                        # render all diagrams in src/
-make render FILE=flow.puml              # render a single file
-make render FILE=public/flow.puml       # render a file in a subdirectory
-make render DIR=./architecture     # render from a custom directory
-make render OUT=./docs/images      # render to a custom output directory
-make render DIR=./arch OUT=./out   # combine options
+make render                                # render all diagrams in src/
+make render FILE=public/flow.puml          # render a single file
+make render DIR=src/public                 # render src/public → diagrams/public
+make render DIR=src/private                # render src/private → diagrams/private
+make render DIR=src/public OUT=out/pub     # override output directory
 ```
 
 The server starts on `http://localhost:8000`. The script checks it automatically on every run — no flags needed:
