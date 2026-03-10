@@ -13,10 +13,11 @@
  *   list_supported_types - List all Kroki diagram types and their file extensions.
  *
  * HTTP file server (same process, loopback only):
- *   GET http://127.0.0.1:8765/<id>   → serves a rendered image by short ID
- *   POST http://127.0.0.1:8765/render { source, type } → raw image bytes (direct render)
+ *   GET http://127.0.0.1:<port>/<id>   → serves a rendered image by short ID
+ *   POST http://127.0.0.1:<port>/render { source, type } → raw image bytes (direct render)
  *   IDs are in-memory only — they reset when the server restarts.
- *   Port override: DIAGRAM_RENDER_HTTP_PORT env var.
+ *   Preferred port: 17432 (tries 17432–17440 until one is free).
+ *   Override start port: DIAGRAM_RENDER_HTTP_PORT env var.
  *
  * Kroki server selection (non-interactive):
  *   Tries local Kroki at http://localhost:8000 first.
@@ -48,7 +49,10 @@ const {
   renderMarkdownFile,
 } = require("./lib/renderer.cjs");
 
-const HTTP_PORT = parseInt(process.env.DIAGRAM_RENDER_HTTP_PORT ?? "17432", 10);
+const HTTP_PORT_START = parseInt(process.env.DIAGRAM_RENDER_HTTP_PORT ?? "17432", 10);
+
+/** Actual bound port — set by startHttpServer(), used by registerFile(). */
+let httpPort = null;
 
 // ---------------------------------------------------------------------------
 // Kroki URL resolution — no stdin, resolved per-call
@@ -78,15 +82,23 @@ const fileRegistry = new Map();
 function registerFile(filePath, mimeType) {
   const id = crypto.randomBytes(6).toString("hex");
   fileRegistry.set(id, { filePath, mimeType });
-  return `http://127.0.0.1:${HTTP_PORT}/${id}`;
+  return `http://127.0.0.1:${httpPort}/${id}`;
 }
 
 // ---------------------------------------------------------------------------
 // HTTP server — serves registered files + direct render endpoint
 // ---------------------------------------------------------------------------
 
-function startHttpServer(port) {
-  const srv = http.createServer((req, res) => {
+/**
+ * Tries to bind an HTTP server starting at startPort, incrementing up to
+ * startPort+8 until a free port is found. Sets the module-level httpPort.
+ * Rejects if no port is available.
+ *
+ * @param {number} startPort
+ * @returns {Promise<void>}
+ */
+function startHttpServer(startPort) {
+  const handler = (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -154,17 +166,31 @@ function startHttpServer(port) {
 
     res.writeHead(404);
     res.end();
-  });
+  };
 
-  srv.on("error", (err) => {
-    process.stderr.write(`diagram-render HTTP server error (port ${port}): ${err.message}\n`);
+  return new Promise((resolve, reject) => {
+    const tryPort = (port) => {
+      if (port > startPort + 8) {
+        reject(new Error(`No available port found in range ${startPort}–${startPort + 8}`));
+        return;
+      }
+      const srv = http.createServer(handler);
+      srv.once("error", (err) => {
+        if (err.code === "EADDRINUSE") {
+          process.stderr.write(`diagram-render: port ${port} in use, trying ${port + 1}\n`);
+          tryPort(port + 1);
+        } else {
+          reject(err);
+        }
+      });
+      srv.listen(port, "127.0.0.1", () => {
+        httpPort = port;
+        process.stderr.write(`diagram-render HTTP server listening on http://127.0.0.1:${port}\n`);
+        resolve();
+      });
+    };
+    tryPort(startPort);
   });
-
-  srv.listen(port, "127.0.0.1", () => {
-    process.stderr.write(`diagram-render HTTP server listening on http://127.0.0.1:${port}\n`);
-  });
-
-  return srv;
 }
 
 // ---------------------------------------------------------------------------
@@ -376,7 +402,7 @@ async function main() {
     process.env.DIAGRAM_RENDER_KROKI_URL = process.argv[idx + 1];
   }
 
-  startHttpServer(HTTP_PORT);
+  await startHttpServer(HTTP_PORT_START);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
