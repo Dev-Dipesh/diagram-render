@@ -62,7 +62,6 @@ let httpPort = null;
 // Persistent storage paths
 // ---------------------------------------------------------------------------
 
-const LEGACY_HOME_DIR = path.join(os.homedir(), ".diagram-render");
 const HOME_DIR = path.join(os.homedir(), ".canopy");
 const OUTPUT_DIR = path.join(HOME_DIR, "output");
 const REGISTRY_FILE = path.join(HOME_DIR, "registry.json");
@@ -458,9 +457,6 @@ async function main() {
     process.env.DIAGRAM_RENDER_KROKI_URL = process.argv[idx + 1];
   }
 
-  // Migrate legacy data from ~/.diagram-render to ~/.canopy to preserve existing files/URLs.
-  migrateLegacyStorage();
-
   // Ensure persistent storage dirs exist and restore registry from last run
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   loadRegistry();
@@ -472,47 +468,3 @@ async function main() {
 }
 
 void main();
-
-/**
- * Migrates persistent storage from the legacy ~/.diagram-render path to ~/.canopy.
- * If both locations exist, it merges output files and registry entries without
- * deleting user data.
- */
-function migrateLegacyStorage() {
-  if (!fs.existsSync(LEGACY_HOME_DIR)) return;
-
-  fs.mkdirSync(HOME_DIR, { recursive: true });
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-
-  const legacyOutputDir = path.join(LEGACY_HOME_DIR, "output");
-  if (fs.existsSync(legacyOutputDir)) {
-    for (const name of fs.readdirSync(legacyOutputDir)) {
-      const from = path.join(legacyOutputDir, name);
-      const to = path.join(OUTPUT_DIR, name);
-      if (fs.existsSync(to)) continue;
-      try {
-        fs.renameSync(from, to);
-      } catch {
-        fs.copyFileSync(from, to);
-      }
-    }
-  }
-
-  const legacyRegistryFile = path.join(LEGACY_HOME_DIR, "registry.json");
-  if (fs.existsSync(legacyRegistryFile)) {
-    let legacyEntries = {};
-    let newEntries = {};
-    try {
-      legacyEntries = JSON.parse(fs.readFileSync(legacyRegistryFile, "utf8"));
-    } catch {}
-    if (fs.existsSync(REGISTRY_FILE)) {
-      try {
-        newEntries = JSON.parse(fs.readFileSync(REGISTRY_FILE, "utf8"));
-      } catch {}
-    }
-    const merged = { ...legacyEntries, ...newEntries };
-    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(merged, null, 2), "utf8");
-  }
-
-  process.stderr.write("canopy: checked legacy storage migration\n");
-}
