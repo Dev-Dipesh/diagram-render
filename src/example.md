@@ -1,8 +1,8 @@
 # Example — multiple diagrams in one markdown file
 
-## Sequence diagram (titled)
+## Quoted title (spaces allowed)
 
-```plantuml request-flow
+```plantuml "Request Flow Overview"
 @startuml
 actor User
 participant "Your System" as S
@@ -15,7 +15,7 @@ S --> User: result
 @enduml
 ```
 
-## Flow diagram (titled)
+## Unquoted slug
 
 ```mermaid decision-flow
 graph TD

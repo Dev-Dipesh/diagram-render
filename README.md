@@ -96,19 +96,28 @@ Each block is rendered individually and saved to a sub-directory named after the
 
 ### Title syntax
 
-Add a slug after the language name on the opening fence line. The slug becomes the PNG filename.
+Add a title after the language name on the opening fence line. The title becomes the PNG filename.
+
+**Quoted** — allows spaces, becomes the filename as-is:
 
 ````md
-```plantuml user-flow
+```plantuml "User Registration Flow"
 @startuml
 Alice -> Bob: hello
 @enduml
 ```
 ````
 
-→ `diagrams/architecture/user-flow.png`
+→ `diagrams/architecture/User Registration Flow.png`
 
-Use hyphens for multi-word titles: `user-flow-diagram`, `db-schema-v2`.
+**Unquoted slug** — single word or kebab-case:
+
+````md
+```plantuml user-flow
+```
+````
+
+→ `diagrams/architecture/user-flow.png`
 
 Without a title, files are named by type and sequence number: `plantuml-01.png`, `mermaid-01.png`, etc.
 
@@ -117,7 +126,7 @@ Without a title, files are named by type and sequence number: `plantuml-01.png`,
 ````md
 # Architecture
 
-```plantuml sequence-overview
+```plantuml "Sequence Overview"
 @startuml
 ...
 @enduml
@@ -139,8 +148,8 @@ Output for `src/architecture.md`:
 ```txt
 diagrams/
 └── architecture/
-    ├── sequence-overview.png   ← titled
-    ├── data-flow.png           ← titled
+    ├── Sequence Overview.png   ← quoted title
+    ├── data-flow.png           ← unquoted slug
     └── mermaid-01.png          ← untitled fallback
 ```
 

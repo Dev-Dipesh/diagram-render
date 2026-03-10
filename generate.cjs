@@ -182,9 +182,11 @@ Markdown (.md) files:
   Fenced code blocks with a diagram language are rendered individually.
   Output goes to a sub-directory named after the .md file.
 
-  Title syntax — add a slug after the language on the opening fence:
-    \`\`\`plantuml user-flow    →  user-flow.png
-    \`\`\`mermaid               →  mermaid-01.png  (fallback)
+  Title syntax — add a title after the language on the opening fence.
+  Quoted titles allow spaces; unquoted titles are single slugs:
+    \`\`\`plantuml "User Registration Flow"  →  User Registration Flow.png
+    \`\`\`plantuml user-flow                 →  user-flow.png
+    \`\`\`mermaid                            →  mermaid-01.png  (fallback)
 
   Supported language names: ${Object.keys(MARKDOWN_LANG).join(", ")}
 `);
@@ -208,19 +210,21 @@ function parseArgs(argv) {
 }
 
 // Extracts fenced code blocks from markdown whose language is a supported diagram type.
-// Captures an optional title slug from the info string: ```plantuml user-flow
+// Captures an optional title from the info string — quoted or unquoted:
+//   ```plantuml user-flow              → title: "user-flow"
+//   ```plantuml "User Registration Flow"  → title: "User Registration Flow"
 // Returns [{krokiType, title, source}] in document order.
 function parseMarkdownDiagrams(content) {
   const results = [];
-  const fence = /^```([\w-]+)(?:[ \t]+([\w-]+))?\s*\n([\s\S]*?)^```/gm;
+  const fence = /^```([\w-]+)(?:[ \t]+(?:"([^"]+)"|([\w-]+)))?\s*\n([\s\S]*?)^```/gm;
   let match;
   while ((match = fence.exec(content)) !== null) {
     const krokiType = MARKDOWN_LANG[match[1].toLowerCase()];
     if (krokiType) {
       results.push({
         krokiType,
-        title: match[2] ?? null,
-        source: match[3],
+        title: match[2] ?? match[3] ?? null,
+        source: match[4],
       });
     }
   }

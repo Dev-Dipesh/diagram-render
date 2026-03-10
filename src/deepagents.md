@@ -1,6 +1,6 @@
 It is an **inferred architecture diagram from the code**, not a literal LangGraph-exported runtime graph.
 
-```plantuml
+```plantuml "Deep Agent Factory – Agent and Subagent Assembly Workflow"
 @startuml
 title Deep Agent assembly flow inferred from create_deep_agent(...)
 
@@ -152,113 +152,58 @@ stop
 
 And here’s a **component-style PlantUML** version, which is often better for understanding the nesting and middleware composition:
 
-```plantuml
+```c4plantuml "Deep Agent System Architecture"
 @startuml
-title Deep Agent component structure inferred from create_deep_agent(...)
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
-skinparam shadowing false
-skinparam packageStyle rectangle
-skinparam linetype ortho
+title Deep Agent Architecture
 
-package "create_deep_agent(...)" {
+Container_Boundary(deep_agent, "Deep Agent") {
 
-  component "Model resolution" as ModelResolution
-  component "Backend resolution" as BackendResolution
-  component "System prompt composition" as PromptComposition
-  component "create_agent(...)\n.with_config(recursion_limit=1000)" as CreateAgent
+  Component(main_agent, "Main Agent", "LangChain Agent")
 
-  package "General-purpose subagent" {
-    component "GENERAL_PURPOSE_SUBAGENT spec" as GPSpec
+  Component(todo, "TodoListMiddleware")
+  Component(memory, "MemoryMiddleware")
+  Component(skills, "SkillsMiddleware")
+  Component(fs, "FilesystemMiddleware")
+  Component(subagent_mw, "SubAgentMiddleware")
+  Component(sum, "SummarizationMiddleware")
+  Component(cache, "PromptCachingMiddleware")
+  Component(patch, "PatchToolCallsMiddleware")
+  Component(hitl, "HumanInTheLoopMiddleware")
 
-    package "GP middleware stack" {
-      component "TodoListMiddleware" as GP_Todo
-      component "FilesystemMiddleware" as GP_FS
-      component "SummarizationMiddleware" as GP_Sum
-      component "AnthropicPromptCachingMiddleware" as GP_Cache
-      component "PatchToolCallsMiddleware" as GP_Patch
-      component "SkillsMiddleware\n(optional)" as GP_Skills
-      component "HumanInTheLoopMiddleware\n(optional)" as GP_HITL
-    }
-  }
-
-  package "User subagent processing" {
-    component "Iterate subagents[]" as ProcessLoop
-    component "CompiledSubAgent\n(pass through)" as CompiledSub
-    component "Resolve subagent model" as SubModelResolve
-    component "Processed SubAgent spec" as ProcessedSubSpec
-
-    package "Per-subagent base middleware" {
-      component "TodoListMiddleware" as SUB_Todo
-      component "FilesystemMiddleware" as SUB_FS
-      component "SummarizationMiddleware" as SUB_Sum
-      component "AnthropicPromptCachingMiddleware" as SUB_Cache
-      component "PatchToolCallsMiddleware" as SUB_Patch
-      component "SkillsMiddleware\n(optional per subagent)" as SUB_Skills
-      component "User subagent middleware\n(optional)" as SUB_UserMW
-    }
-  }
-
-  component "all_subagents =\n[general_purpose_spec] + processed_subagents" as AllSubagents
-
-  package "Main deep agent" {
-    package "Main middleware stack" {
-      component "TodoListMiddleware" as MAIN_Todo
-      component "MemoryMiddleware\n(optional)" as MAIN_Memory
-      component "SkillsMiddleware\n(optional)" as MAIN_Skills
-      component "FilesystemMiddleware" as MAIN_FS
-      component "SubAgentMiddleware" as MAIN_SubAgent
-      component "SummarizationMiddleware" as MAIN_Sum
-      component "AnthropicPromptCachingMiddleware" as MAIN_Cache
-      component "PatchToolCallsMiddleware" as MAIN_Patch
-      component "Extra user middleware\n(optional)" as MAIN_UserMW
-      component "HumanInTheLoopMiddleware\n(optional)" as MAIN_HITL
-    }
-  }
 }
 
-ModelResolution --> GPSpec
-BackendResolution --> GPSpec
+Container_Boundary(subagents, "Subagents") {
 
-GP_Todo --> GPSpec
-GP_FS --> GPSpec
-GP_Sum --> GPSpec
-GP_Cache --> GPSpec
-GP_Patch --> GPSpec
-GP_Skills --> GPSpec
-GP_HITL --> GPSpec
+  Component(gp_subagent, "General Purpose SubAgent")
 
-ProcessLoop --> CompiledSub
-ProcessLoop --> SubModelResolve
-SubModelResolve --> ProcessedSubSpec
+  Component(gp_todo, "TodoListMiddleware")
+  Component(gp_fs, "FilesystemMiddleware")
+  Component(gp_sum, "SummarizationMiddleware")
+  Component(gp_cache, "PromptCachingMiddleware")
+  Component(gp_patch, "PatchToolCallsMiddleware")
 
-SUB_Todo --> ProcessedSubSpec
-SUB_FS --> ProcessedSubSpec
-SUB_Sum --> ProcessedSubSpec
-SUB_Cache --> ProcessedSubSpec
-SUB_Patch --> ProcessedSubSpec
-SUB_Skills --> ProcessedSubSpec
-SUB_UserMW --> ProcessedSubSpec
+}
 
-GPSpec --> AllSubagents
-CompiledSub --> AllSubagents
-ProcessedSubSpec --> AllSubagents
+main_agent --> todo
+main_agent --> memory
+main_agent --> skills
+main_agent --> fs
+main_agent --> subagent_mw
+main_agent --> sum
+main_agent --> cache
+main_agent --> patch
+main_agent --> hitl
 
-AllSubagents --> MAIN_SubAgent
+subagent_mw --> gp_subagent
 
-MAIN_Todo --> CreateAgent
-MAIN_Memory --> CreateAgent
-MAIN_Skills --> CreateAgent
-MAIN_FS --> CreateAgent
-MAIN_SubAgent --> CreateAgent
-MAIN_Sum --> CreateAgent
-MAIN_Cache --> CreateAgent
-MAIN_Patch --> CreateAgent
-MAIN_UserMW --> CreateAgent
-MAIN_HITL --> CreateAgent
+gp_subagent --> gp_todo
+gp_subagent --> gp_fs
+gp_subagent --> gp_sum
+gp_subagent --> gp_cache
+gp_subagent --> gp_patch
 
-PromptComposition --> CreateAgent
-ModelResolution --> CreateAgent
-BackendResolution --> CreateAgent
 @enduml
 ```
 
