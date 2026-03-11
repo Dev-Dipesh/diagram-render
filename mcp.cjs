@@ -65,6 +65,33 @@ let httpPort = null;
 const HOME_DIR = path.join(os.homedir(), ".canopy");
 const OUTPUT_DIR = path.join(HOME_DIR, "output");
 const REGISTRY_FILE = path.join(HOME_DIR, "registry.json");
+const PID_FILE = path.join(HOME_DIR, "server.pid");
+
+// ---------------------------------------------------------------------------
+// Singleton enforcement — kill any previous instance before starting
+// ---------------------------------------------------------------------------
+
+function killPreviousInstance() {
+  if (!fs.existsSync(PID_FILE)) return;
+  try {
+    const oldPid = parseInt(fs.readFileSync(PID_FILE, "utf8").trim(), 10);
+    if (oldPid && oldPid !== process.pid) {
+      process.kill(oldPid, "SIGTERM");
+      process.stderr.write(`canopy: killed previous instance (pid ${oldPid})\n`);
+    }
+  } catch {
+    // Process already dead — that's fine
+  }
+  fs.rmSync(PID_FILE, { force: true });
+}
+
+function writePidFile() {
+  fs.writeFileSync(PID_FILE, String(process.pid), "utf8");
+  const cleanup = () => fs.rmSync(PID_FILE, { force: true });
+  process.once("exit", cleanup);
+  process.once("SIGTERM", () => { cleanup(); process.exit(0); });
+  process.once("SIGINT", () => { cleanup(); process.exit(0); });
+}
 
 // ---------------------------------------------------------------------------
 // Kroki URL resolution — no stdin, resolved per-call
@@ -142,14 +169,14 @@ function allocateOutput(fmt) {
 // ---------------------------------------------------------------------------
 
 /**
- * Tries to bind an HTTP server starting at startPort, incrementing up to
- * startPort+8 until a free port is found. Sets the module-level httpPort.
- * Rejects if no port is available.
+ * Binds the HTTP server to a fixed port, retrying on EADDRINUSE (e.g. while
+ * the previous instance is still releasing the port after SIGTERM).
+ * Never increments the port — stable port = stable URLs.
  *
- * @param {number} startPort
+ * @param {number} port
  * @returns {Promise<void>}
  */
-function startHttpServer(startPort) {
+function startHttpServer(port) {
   const handler = (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -221,16 +248,14 @@ function startHttpServer(startPort) {
   };
 
   return new Promise((resolve, reject) => {
-    const tryPort = (port) => {
-      if (port > startPort + 8) {
-        reject(new Error(`No available port found in range ${startPort}–${startPort + 8}`));
-        return;
-      }
+    let attempts = 0;
+    const tryBind = () => {
       const srv = http.createServer(handler);
       srv.once("error", (err) => {
-        if (err.code === "EADDRINUSE") {
-          process.stderr.write(`canopy: port ${port} in use, trying ${port + 1}\n`);
-          tryPort(port + 1);
+        if (err.code === "EADDRINUSE" && attempts < 10) {
+          attempts++;
+          process.stderr.write(`canopy: port ${port} still in use, retrying (${attempts}/10)…\n`);
+          setTimeout(tryBind, 200);
         } else {
           reject(err);
         }
@@ -241,7 +266,7 @@ function startHttpServer(startPort) {
         resolve();
       });
     };
-    tryPort(startPort);
+    tryBind();
   });
 }
 
@@ -459,6 +484,8 @@ async function main() {
 
   // Ensure persistent storage dirs exist and restore registry from last run
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  killPreviousInstance();
+  writePidFile();
   loadRegistry();
 
   await startHttpServer(HTTP_PORT_START);
