@@ -8,9 +8,10 @@
  *   { "command": "node", "args": ["/path/to/canopy/mcp.cjs"] }
  *
  * Tools:
- *   render_diagram       - Render diagram source text, returns a preview URL.
- *   render_file          - Render a diagram file on disk, returns preview URL(s).
- *   list_supported_types - List all Kroki diagram types and their file extensions.
+ *   get_diagram_preferences - Returns format selection rules and visual style guide.
+ *   render_diagram          - Render diagram source text, returns a preview URL.
+ *   render_file             - Render a diagram file on disk, returns preview URL(s).
+ *   list_supported_types    - List all Kroki diagram types and their file extensions.
  *
  * HTTP file server (same process, loopback only):
  *   GET http://127.0.0.1:<port>/<id>   → serves a rendered image by short ID
@@ -466,6 +467,19 @@ function buildInstructions() {
 // ---------------------------------------------------------------------------
 
 const server = new McpServer({ name: "canopy", version: "1.0.0" }, { instructions: buildInstructions() });
+
+// ------ get_diagram_preferences ---------------------------------------------
+
+server.registerTool(
+  "get_diagram_preferences",
+  {
+    description: "Returns the diagram style guide and format selection rules to apply when generating diagrams. Call this at the start of any diagram-related conversation.",
+    inputSchema: z.object({}),
+  },
+  async () => ({
+    content: [{ type: "text", text: buildInstructions() }],
+  }),
+);
 
 // ------ list_supported_types ------------------------------------------------
 
