@@ -12,9 +12,15 @@
  *   render_diagram          - Render diagram source text, returns a preview URL.
  *   render_file             - Render a diagram file on disk, returns preview URL(s).
  *   list_supported_types    - List all Kroki diagram types and their file extensions.
+ *   search_diagrams         - Search previously rendered diagrams by title keyword.
+ *   rename_diagram          - Rename a diagram in the registry by ID.
+ *   delete_diagram          - Delete a diagram from the registry and disk by ID.
  *
  * HTTP file server (same process, loopback only):
- *   GET http://127.0.0.1:<port>/<id>   → serves a rendered image by short ID
+ *   GET  http://127.0.0.1:<port>/         → gallery page (all rendered diagrams)
+ *   GET  http://127.0.0.1:<port>/?id=<id> → gallery opened in lightbox for that diagram
+ *   GET  http://127.0.0.1:<port>/<id>     → raw image bytes (for <img> src in gallery)
+ *   DELETE http://127.0.0.1:<port>/<id>   → remove from registry + disk
  *   POST http://127.0.0.1:<port>/render { source, type } → raw image bytes (direct render)
  *   Preferred port: 17432 (tries 17432–17440 until one is free).
  *   Override start port: DIAGRAM_RENDER_HTTP_PORT env var.
@@ -157,7 +163,7 @@ function registerFile(filePath, mimeType, title = null) {
   const id = crypto.randomBytes(6).toString("hex");
   fileRegistry.set(id, { filePath, mimeType, title, createdAt: new Date().toISOString() });
   persistRegistry();
-  return `http://127.0.0.1:${httpPort}/${id}`;
+  return `http://127.0.0.1:${httpPort}/?id=${id}`;
 }
 
 /**
@@ -175,7 +181,7 @@ function allocateOutput(fmt, title = null) {
   const filePath = path.join(OUTPUT_DIR, `${id}.${fmt}`);
   fileRegistry.set(id, { filePath, mimeType, title, createdAt: new Date().toISOString() });
   persistRegistry();
-  return { filePath, previewUrl: `http://127.0.0.1:${httpPort}/${id}` };
+  return { filePath, previewUrl: `http://127.0.0.1:${httpPort}/?id=${id}` };
 }
 
 // ---------------------------------------------------------------------------
@@ -205,15 +211,23 @@ h1{font-size:17px;font-weight:700;color:#fff;white-space:nowrap}
 .title{font-size:13px;font-weight:600;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
 .meta{display:flex;align-items:center;gap:6px;font-size:11px;color:#888}
 .badge{background:#3a3a3c;border:1px solid #555;padding:1px 6px;border-radius:4px;text-transform:uppercase;font-size:10px;letter-spacing:.4px}
+.card-actions{position:absolute;top:6px;right:6px;display:none;gap:4px}
+.card:hover .card-actions{display:flex}
+.card-wrap{position:relative}
+.del-btn{background:rgba(0,0,0,.7);border:none;color:#ff453a;cursor:pointer;border-radius:5px;padding:4px 7px;font-size:13px;line-height:1}
+.del-btn:hover{background:rgba(255,69,58,.2)}
 .empty{text-align:center;padding:80px 20px;color:#555;font-size:14px}
 .lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:100;flex-direction:column;align-items:center;justify-content:center}
 .lb.open{display:flex}
 .lb img{max-width:88vw;max-height:80vh;border-radius:6px;object-fit:contain}
 .lb-bar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:rgba(0,0,0,.6)}
-.lb-title{font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw}
+.lb-title{font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50vw}
 .lb-meta{font-size:12px;color:#999}
-.lb-close{font-size:22px;cursor:pointer;color:#aaa;line-height:1;padding:4px;margin-left:16px}
+.lb-actions{display:flex;align-items:center;gap:12px;margin-left:auto}
+.lb-close{font-size:22px;cursor:pointer;color:#aaa;line-height:1;padding:4px}
 .lb-close:hover{color:#fff}
+.lb-del{font-size:13px;cursor:pointer;color:#ff453a;padding:4px 8px;border-radius:5px;border:1px solid rgba(255,69,58,.4)}
+.lb-del:hover{background:rgba(255,69,58,.15)}
 .lb-nav{position:fixed;top:50%;transform:translateY(-50%);font-size:36px;cursor:pointer;color:#aaa;padding:16px;user-select:none;line-height:1}
 .lb-nav:hover{color:#fff}
 #lb-prev{left:8px}
@@ -234,7 +248,10 @@ h1{font-size:17px;font-weight:700;color:#fff;white-space:nowrap}
   <div class="lb-bar">
     <span class="lb-title" id="lb-title"></span>
     <span class="lb-meta" id="lb-meta"></span>
-    <span class="lb-close" id="lb-close">✕</span>
+    <div class="lb-actions">
+      <span class="lb-del" id="lb-del">Delete</span>
+      <span class="lb-close" id="lb-close">✕</span>
+    </div>
   </div>
   <span class="lb-nav" id="lb-prev">&#8249;</span>
   <img id="lb-img" src="" alt="">
@@ -255,14 +272,18 @@ function renderGrid(list){
   if(!list.length){ g.innerHTML=''; e.style.display=''; return }
   e.style.display='none';
   g.innerHTML=list.map((d,i)=>\`
-    <div class="card" data-i="\${i}">
-      <img class="thumb" src="/\${d.id}" loading="lazy" alt="\${d.title||''}">
-      <div class="info">
-        <div class="title">\${d.title||'(untitled)'}</div>
-        <div class="meta"><span class="badge">\${fmt(d.filePath)}</span>\${d.createdAt?\`<span>\${fmtDate(d.createdAt)}</span>\`:''}</div>
+    <div class="card-wrap">
+      <div class="card" data-i="\${i}">
+        <img class="thumb" src="/\${d.id}" loading="lazy" alt="\${d.title||''}">
+        <div class="info">
+          <div class="title">\${d.title||'(untitled)'}</div>
+          <div class="meta"><span class="badge">\${fmt(d.filePath)}</span>\${d.createdAt?\`<span>\${fmtDate(d.createdAt)}</span>\`:''}</div>
+        </div>
       </div>
+      <div class="card-actions"><button class="del-btn" data-id="\${d.id}" title="Delete">🗑</button></div>
     </div>\`).join('');
   g.querySelectorAll('.card').forEach(el=>el.addEventListener('click',()=>open(+el.dataset.i)));
+  g.querySelectorAll('.del-btn').forEach(btn=>btn.addEventListener('click',e=>{ e.stopPropagation(); del(btn.dataset.id); }));
 }
 
 function open(i){
@@ -271,12 +292,27 @@ function open(i){
   document.getElementById('lb-open').href='/'+d.id;
   document.getElementById('lb-title').textContent=d.title||'(untitled)';
   document.getElementById('lb-meta').textContent=[fmt(d.filePath),fmtDate(d.createdAt)].filter(Boolean).join(' · ');
+  document.getElementById('lb-del').dataset.id=d.id;
   document.getElementById('lb').classList.add('open');
 }
 function close(){ document.getElementById('lb').classList.remove('open') }
 function nav(d){ open((idx+d+filtered.length)%filtered.length) }
 
+async function del(id){
+  if(!confirm('Delete this diagram?')) return;
+  const r=await fetch('/'+id,{method:'DELETE'});
+  if(!r.ok){ alert('Delete failed'); return; }
+  const ai=ALL.findIndex(d=>d.id===id), fi=filtered.findIndex(d=>d.id===id);
+  if(ai!==-1) ALL.splice(ai,1);
+  if(fi!==-1) filtered.splice(fi,1);
+  if(document.getElementById('lb').classList.contains('open')){
+    if(filtered.length===0) close(); else open(Math.min(idx,filtered.length-1));
+  }
+  renderGrid(filtered);
+}
+
 document.getElementById('lb-close').addEventListener('click',close);
+document.getElementById('lb-del').addEventListener('click',function(){ del(this.dataset.id); });
 document.getElementById('lb-prev').addEventListener('click',()=>nav(-1));
 document.getElementById('lb-next').addEventListener('click',()=>nav(1));
 document.getElementById('search').addEventListener('input',function(){
@@ -292,6 +328,8 @@ document.addEventListener('keydown',e=>{
 });
 
 renderGrid(filtered);
+const focusId=new URLSearchParams(location.search).get('id');
+if(focusId){ const i=filtered.findIndex(d=>d.id===focusId); if(i!==-1) open(i); }
 </script>
 </body>
 </html>`;
@@ -311,7 +349,7 @@ renderGrid(filtered);
 function startHttpServer(port) {
   const handler = (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     if (req.method === "OPTIONS") {
@@ -320,8 +358,8 @@ function startHttpServer(port) {
       return;
     }
 
-    // GET / — gallery page listing all rendered diagrams
-    if (req.method === "GET" && req.url === "/") {
+    // GET / or /?id=<id> — gallery page (optionally auto-opens a diagram in lightbox)
+    if (req.method === "GET" && (req.url === "/" || req.url.startsWith("/?"))) {
       loadRegistry();
       const diagrams = [...fileRegistry.entries()]
         .filter(([, entry]) => fs.existsSync(entry.filePath))
@@ -330,6 +368,27 @@ function startHttpServer(port) {
       const html = GALLERY_HTML.replace("DIAGRAMS_JSON", JSON.stringify(diagrams));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
+      return;
+    }
+
+    // DELETE /<id> — remove a diagram from registry and disk
+    if (req.method === "DELETE" && req.url && req.url.length > 1) {
+      const id = req.url.slice(1);
+      const entry = fileRegistry.get(id);
+      if (!entry) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Not found" }));
+        return;
+      }
+      fileRegistry.delete(id);
+      persistRegistry();
+      try {
+        if (fs.existsSync(entry.filePath)) fs.unlinkSync(entry.filePath);
+      } catch {
+        // File already gone — registry is still cleaned up
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
       return;
     }
 
@@ -637,7 +696,7 @@ server.registerTool(
       .map(([id, entry]) => ({
         id,
         title: entry.title,
-        previewUrl: `http://127.0.0.1:${httpPort}/${id}`,
+        previewUrl: `http://127.0.0.1:${httpPort}/?id=${id}`,
         createdAt: entry.createdAt ?? null,
       }))
       .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
@@ -854,6 +913,71 @@ server.registerTool(
         isError: true,
       };
     }
+  },
+);
+
+// ------ rename_diagram ------------------------------------------------------
+
+server.registerTool(
+  "rename_diagram",
+  {
+    description:
+      "Rename a previously rendered diagram by its ID. Use search_diagrams to find the ID. " +
+      "Useful for giving titles to diagrams that were rendered without one.",
+    inputSchema: z.object({
+      id: z.string().describe("The diagram ID (short hex string from a preview URL)."),
+      title: z.string().describe("New title for the diagram."),
+    }),
+  },
+  async ({ id, title }) => {
+    loadRegistry();
+    const entry = fileRegistry.get(id);
+    if (!entry) {
+      return {
+        content: [{ type: "text", text: `Error: No diagram found with ID "${id}".` }],
+        isError: true,
+      };
+    }
+    fileRegistry.set(id, { ...entry, title });
+    persistRegistry();
+    return {
+      content: [{ type: "text", text: `Renamed diagram ${id} to "${title}".` }],
+    };
+  },
+);
+
+// ------ delete_diagram ------------------------------------------------------
+
+server.registerTool(
+  "delete_diagram",
+  {
+    description:
+      "Delete a previously rendered diagram by its ID, removing it from the registry and from disk. " +
+      "Use search_diagrams to find the ID.",
+    inputSchema: z.object({
+      id: z.string().describe("The diagram ID (short hex string from a preview URL)."),
+    }),
+  },
+  async ({ id }) => {
+    loadRegistry();
+    const entry = fileRegistry.get(id);
+    if (!entry) {
+      return {
+        content: [{ type: "text", text: `Error: No diagram found with ID "${id}".` }],
+        isError: true,
+      };
+    }
+    const label = entry.title ?? id;
+    fileRegistry.delete(id);
+    persistRegistry();
+    try {
+      if (fs.existsSync(entry.filePath)) fs.unlinkSync(entry.filePath);
+    } catch {
+      // File already gone — registry is still cleaned up
+    }
+    return {
+      content: [{ type: "text", text: `Deleted diagram "${label}" (${id}).` }],
+    };
   },
 );
 
