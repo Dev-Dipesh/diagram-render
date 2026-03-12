@@ -188,7 +188,7 @@ Containers started by `docker-compose.yml`:
 
 ## MCP server
 
-The MCP server exposes diagram rendering as AI tools. It starts an HTTP file server on port 17432 (auto-increments if taken) alongside the MCP stdio transport.
+The MCP server exposes diagram rendering as AI tools. It starts an HTTP file server on a fixed port 17432 alongside the MCP stdio transport.
 
 ![MCP tool call flow](diagrams/public/architecture/mcp-flow.png?v=2)
 
@@ -196,6 +196,7 @@ The MCP server exposes diagram rendering as AI tools. It starts an HTTP file ser
 
 | Tool | Description |
 |------|-------------|
+| `get_diagram_preferences` | Returns the format selection rules and visual style guide |
 | `render_diagram` | Render diagram source text → returns a preview URL |
 | `render_file` | Render a source file from disk → returns preview URL(s) |
 | `list_supported_types` | List all supported Kroki types and extensions |
@@ -236,3 +237,4 @@ Restart Claude Desktop after editing. The MCP server starts automatically when t
 - `diagrams/private/` and `src/private/` are gitignored — use them for sensitive diagrams.
 - Non-diagram code blocks in `.md` files are silently skipped.
 - Rendered images are saved to `~/.canopy/output/` and persist across reboots. The registry is persisted to `~/.canopy/registry.json` and reloaded on each server start, so preview URLs remain valid indefinitely as long as the image file exists on disk.
+- The MCP server ships a built-in diagram style guide (format selection rules, color system, layout defaults) injected automatically into supporting clients. To override or extend it, create `~/.canopy/preferences.md` — its contents are appended under a `USER PREFERENCES` section on every server start. In Claude Desktop, call `get_diagram_preferences` at the start of a chat to load the style guide manually.
