@@ -353,7 +353,7 @@ Apply these rules to every diagram unless the user overrides them.
 | Orchestrate / Route | \`#B2EBF2\` | \`#00838F\` | \`#004D56\` |
 | Validate / Control | \`#C8E6C9\` | \`#388E3C\` | \`#1B5E20\` |
 | Evaluate / Output | \`#FFE0B2\` | \`#E65100\` | \`#7C3200\` |
-| Alert / Exception | \`#F8BBD0\` | \`#E53935\` | \`#B71C1C\` |
+| Alert / Exception | \`#F8BBD0\` | \`#E53935\` | \`#A31515\` |
 | Auxiliary / Optional | \`#F5F5F5\` | \`#9E9E9E\` | \`#555555\` |
 
 Inner nodes inside a cluster use a lighter version of the cluster fill (approximately 30% lighter / mixed with white). Reference:
@@ -376,10 +376,11 @@ Inner nodes inside a cluster use a lighter version of the cluster fill (approxim
 
 ### Edges
 - Primary flow: solid · \`#444444\` · 1.5px
-- Secondary: solid · \`#888888\` · 1px
+- Secondary: solid · \`#767676\` · 1px
 - Alert / exception path: dashed · \`#E53935\` · 2px
 - Feedback / loop: dashed · \`#555555\` · 1px
-- Labels: 2–3 words max, 10pt, \`#444444\`, placed mid-edge
+- Primary label font: \`#444444\` · secondary label font: \`#5C5C5C\`
+- Labels: 2–3 words max, 10pt, placed mid-edge
 
 ### Typography
 - Font: Arial or clean sans-serif
@@ -412,6 +413,7 @@ node [style="filled,rounded" shape=box fontname="Arial" fontsize=11]
 edge [fontname="Arial" fontsize=10 color="#444444" penwidth=1.5]
 \`\`\`
 Use \`lhead\` / \`ltail\` for all cross-cluster arrows.
+Always prefix edge labels with a leading space: \`label=" text"\` not \`label="text"\` — Graphviz places labels directly on the stroke with no padding; the leading space provides the only breathing room.
 
 ### d2
 \`\`\`
