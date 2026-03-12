@@ -65,6 +65,12 @@ const HTTP_PORT_START = parseInt(process.env.DIAGRAM_RENDER_HTTP_PORT ?? "17432"
 /** Actual bound port — set by startHttpServer(), used by registerFile(). */
 let httpPort = null;
 
+/**
+ * Version token for this running instance — derived from this file's mtime.
+ * Changes on every deploy/save, enabling stale-server detection.
+ */
+const SERVER_VERSION = String(fs.statSync(__filename).mtimeMs);
+
 // ---------------------------------------------------------------------------
 // Persistent storage paths
 // ---------------------------------------------------------------------------
@@ -78,33 +84,40 @@ const PREFERENCES_FILE = path.join(HOME_DIR, "preferences.md");
 // ---------------------------------------------------------------------------
 // HTTP server ownership — tracks which process owns the HTTP listener.
 // Only the process that successfully binds writes the PID file.
-// Other instances piggyback on the existing server rather than killing it.
+// New instances check the running version: piggyback if same, replace if stale.
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true if the PID file points to a live process other than this one,
- * meaning another canopy instance already owns the HTTP server.
+ * Reads the PID file and returns { pid, version } for the owning process,
+ * or null if the file is absent, unreadable, or the process is no longer alive.
+ * Handles both the current JSON format and the legacy plain-text (pid-only) format.
  *
- * @returns {boolean}
+ * @returns {{ pid: number, version: string|null }|null}
  */
-function anotherInstanceOwnsHttpServer() {
-  if (!fs.existsSync(PID_FILE)) return false;
+function readHttpServerOwner() {
+  if (!fs.existsSync(PID_FILE)) return null;
   try {
-    const pid = parseInt(fs.readFileSync(PID_FILE, "utf8").trim(), 10);
-    if (!pid || pid === process.pid) return false;
+    const content = fs.readFileSync(PID_FILE, "utf8").trim();
+    let pid, version;
+    try {
+      ({ pid, version } = JSON.parse(content));   // current format
+    } catch {
+      pid = parseInt(content, 10); version = null; // legacy plain-text format
+    }
+    if (!pid || pid === process.pid) return null;
     process.kill(pid, 0); // throws ESRCH if process is dead
-    return true;
+    return { pid, version: version ?? null };
   } catch {
-    return false;
+    return null;
   }
 }
 
 /**
- * Writes this process's PID to the PID file and registers cleanup handlers
- * so the file is removed when this process exits.
+ * Writes this process's PID and version to the PID file and registers cleanup
+ * handlers so the file is removed when this process exits.
  */
 function writePidFile() {
-  fs.writeFileSync(PID_FILE, String(process.pid), "utf8");
+  fs.writeFileSync(PID_FILE, JSON.stringify({ pid: process.pid, version: SERVER_VERSION }), "utf8");
   const cleanup = () => fs.rmSync(PID_FILE, { force: true });
   process.once("exit", cleanup);
   process.once("SIGTERM", () => { cleanup(); process.exit(0); });
@@ -462,12 +475,19 @@ function startHttpServer(port) {
       const srv = http.createServer(handler);
       srv.once("error", (err) => {
         if (err.code === "EADDRINUSE") {
-          if (anotherInstanceOwnsHttpServer()) {
-            // A live canopy process already owns the HTTP server — share its port.
-            httpPort = port;
-            process.stderr.write(`canopy: HTTP server already running on port ${port}, piggybacking\n`);
-            resolve();
-            return;
+          const owner = readHttpServerOwner();
+          if (owner) {
+            if (owner.version === SERVER_VERSION) {
+              // Same version — safe to share the existing server's port.
+              httpPort = port;
+              process.stderr.write(`canopy: HTTP server already running on port ${port}, piggybacking\n`);
+              resolve();
+              return;
+            }
+            // Stale version — replace the old server so new routes/tools are live.
+            process.stderr.write(`canopy: replacing outdated HTTP server (pid ${owner.pid}, version ${owner.version ?? "unknown"})\n`);
+            try { process.kill(owner.pid, "SIGTERM"); } catch { /* already gone */ }
+            // Fall through to retry loop — wait for the port to be released.
           }
           if (attempts < 10) {
             attempts++;
