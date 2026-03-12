@@ -465,7 +465,7 @@ function buildInstructions() {
 // MCP server
 // ---------------------------------------------------------------------------
 
-const server = new McpServer({ name: "canopy", version: "1.0.0", instructions: buildInstructions() });
+const server = new McpServer({ name: "canopy", version: "1.0.0" }, { instructions: buildInstructions() });
 
 // ------ list_supported_types ------------------------------------------------
 
