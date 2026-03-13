@@ -1,5 +1,6 @@
 node_modules/
 package-lock.json
+dist/
 
 # Claude Code worktrees and session data
 .claude/

@@ -46,7 +46,9 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
-const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
+const {
+  StdioServerTransport,
+} = require("@modelcontextprotocol/sdk/server/stdio.js");
 const { z } = require("zod");
 
 const {
@@ -61,7 +63,10 @@ const {
   renderMarkdownFile,
 } = require("./lib/renderer.cjs");
 
-const HTTP_PORT_START = parseInt(process.env.DIAGRAM_RENDER_HTTP_PORT ?? "17432", 10);
+const HTTP_PORT_START = parseInt(
+  process.env.DIAGRAM_RENDER_HTTP_PORT ?? "17432",
+  10,
+);
 
 /** Actual bound port — set by startHttpServer(), used by registerFile(). */
 let httpPort = null;
@@ -104,9 +109,10 @@ function readHttpServerOwner() {
     const content = fs.readFileSync(PID_FILE, "utf8").trim();
     let pid, version;
     try {
-      ({ pid, version } = JSON.parse(content));   // current format
+      ({ pid, version } = JSON.parse(content)); // current format
     } catch {
-      pid = parseInt(content, 10); version = null; // legacy plain-text format
+      pid = parseInt(content, 10);
+      version = null; // legacy plain-text format
     }
     if (!pid || pid === process.pid) return null;
     process.kill(pid, 0); // throws ESRCH if process is dead
@@ -125,16 +131,26 @@ function readHttpServerOwner() {
  * sees no PID file but still can't bind.
  */
 function writePidFile() {
-  fs.writeFileSync(PID_FILE, JSON.stringify({ pid: process.pid, version: SERVER_VERSION }), "utf8");
+  fs.writeFileSync(
+    PID_FILE,
+    JSON.stringify({ pid: process.pid, version: SERVER_VERSION }),
+    "utf8",
+  );
   const cleanup = () => fs.rmSync(PID_FILE, { force: true });
   process.once("exit", cleanup);
 
   const gracefulExit = () => {
     if (httpServer) {
       // Close server first; remove PID file only after port is fully released.
-      httpServer.close(() => { cleanup(); process.exit(0); });
+      httpServer.close(() => {
+        cleanup();
+        process.exit(0);
+      });
       // Force exit after 2 s in case keep-alive connections linger.
-      setTimeout(() => { cleanup(); process.exit(0); }, 2000).unref();
+      setTimeout(() => {
+        cleanup();
+        process.exit(0);
+      }, 2000).unref();
     } else {
       cleanup();
       process.exit(0);
@@ -172,7 +188,9 @@ function loadRegistry() {
     for (const [id, entry] of Object.entries(entries)) {
       fileRegistry.set(id, entry);
     }
-    process.stderr.write(`canopy: registry loaded (${fileRegistry.size} entries)\n`);
+    process.stderr.write(
+      `canopy: registry loaded (${fileRegistry.size} entries)\n`,
+    );
   } catch {
     process.stderr.write("canopy: could not read registry, starting fresh\n");
   }
@@ -180,7 +198,11 @@ function loadRegistry() {
 
 /** Writes the current in-memory registry to disk. */
 function persistRegistry() {
-  fs.writeFileSync(REGISTRY_FILE, JSON.stringify(Object.fromEntries(fileRegistry), null, 2), "utf8");
+  fs.writeFileSync(
+    REGISTRY_FILE,
+    JSON.stringify(Object.fromEntries(fileRegistry), null, 2),
+    "utf8",
+  );
 }
 
 /**
@@ -194,7 +216,12 @@ function persistRegistry() {
  */
 function registerFile(filePath, mimeType, title = null) {
   const id = crypto.randomBytes(6).toString("hex");
-  fileRegistry.set(id, { filePath, mimeType, title, createdAt: new Date().toISOString() });
+  fileRegistry.set(id, {
+    filePath,
+    mimeType,
+    title,
+    createdAt: new Date().toISOString(),
+  });
   persistRegistry();
   return `http://127.0.0.1:${httpPort}/?id=${id}`;
 }
@@ -212,7 +239,12 @@ function allocateOutput(fmt, title = null) {
   const id = crypto.randomBytes(6).toString("hex");
   const mimeType = fmt === "svg" ? "image/svg+xml" : "image/png";
   const filePath = path.join(OUTPUT_DIR, `${id}.${fmt}`);
-  fileRegistry.set(id, { filePath, mimeType, title, createdAt: new Date().toISOString() });
+  fileRegistry.set(id, {
+    filePath,
+    mimeType,
+    title,
+    createdAt: new Date().toISOString(),
+  });
   persistRegistry();
   return { filePath, previewUrl: `http://127.0.0.1:${httpPort}/?id=${id}` };
 }
@@ -382,16 +414,28 @@ if(focusId){ const i=filtered.findIndex(d=>d.id===focusId); if(i!==-1) open(i); 
 function killPortOwner(port) {
   return new Promise((resolve) => {
     exec(`lsof -ti tcp:${port}`, (err, stdout) => {
-      if (err || !stdout.trim()) { resolve(false); return; }
-      const pids = stdout.trim().split("\n")
+      if (err || !stdout.trim()) {
+        resolve(false);
+        return;
+      }
+      const pids = stdout
+        .trim()
+        .split("\n")
         .map(Number)
         .filter((p) => p && p !== process.pid);
-      if (pids.length === 0) { resolve(false); return; }
+      if (pids.length === 0) {
+        resolve(false);
+        return;
+      }
       for (const pid of pids) {
         try {
           process.kill(pid, "SIGTERM");
-          process.stderr.write(`canopy: sent SIGTERM to stale port ${port} owner (pid ${pid})\n`);
-        } catch { /* already gone */ }
+          process.stderr.write(
+            `canopy: sent SIGTERM to stale port ${port} owner (pid ${pid})\n`,
+          );
+        } catch {
+          /* already gone */
+        }
       }
       resolve(true);
     });
@@ -423,9 +467,17 @@ function startHttpServer(port) {
       loadRegistry();
       const diagrams = [...fileRegistry.entries()]
         .filter(([, entry]) => fs.existsSync(entry.filePath))
-        .map(([id, entry]) => ({ id, title: entry.title ?? null, filePath: entry.filePath, createdAt: entry.createdAt ?? null }))
+        .map(([id, entry]) => ({
+          id,
+          title: entry.title ?? null,
+          filePath: entry.filePath,
+          createdAt: entry.createdAt ?? null,
+        }))
         .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
-      const html = GALLERY_HTML.replace("DIAGRAMS_JSON", JSON.stringify(diagrams));
+      const html = GALLERY_HTML.replace(
+        "DIAGRAMS_JSON",
+        JSON.stringify(diagrams),
+      );
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
       return;
@@ -502,11 +554,18 @@ function startHttpServer(port) {
           const fmt = OUTPUT_FORMAT[diagramType] ?? "png";
           const mimeType = fmt === "svg" ? "image/svg+xml" : "image/png";
           const data = await krokiRender(source, diagramType, krokiUrl);
-          res.writeHead(200, { "Content-Type": mimeType, "Content-Length": data.length });
+          res.writeHead(200, {
+            "Content-Type": mimeType,
+            "Content-Length": data.length,
+          });
           res.end(data);
         } catch (err) {
           res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+          res.end(
+            JSON.stringify({
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
         }
       });
       return;
@@ -528,18 +587,28 @@ function startHttpServer(port) {
             if (owner.version === SERVER_VERSION) {
               // Same version — safe to share the existing server's port.
               httpPort = port;
-              process.stderr.write(`canopy: HTTP server already running on port ${port}, piggybacking\n`);
+              process.stderr.write(
+                `canopy: HTTP server already running on port ${port}, piggybacking\n`,
+              );
               resolve();
               return;
             }
             // Stale version — replace the old server so new routes/tools are live.
-            process.stderr.write(`canopy: replacing outdated HTTP server (pid ${owner.pid}, version ${owner.version ?? "unknown"})\n`);
-            try { process.kill(owner.pid, "SIGTERM"); } catch { /* already gone */ }
+            process.stderr.write(
+              `canopy: replacing outdated HTTP server (pid ${owner.pid}, version ${owner.version ?? "unknown"})\n`,
+            );
+            try {
+              process.kill(owner.pid, "SIGTERM");
+            } catch {
+              /* already gone */
+            }
             // Fall through to retry loop — wait for the port to be released.
           }
           if (attempts < 15) {
             attempts++;
-            process.stderr.write(`canopy: port ${port} still in use, retrying (${attempts}/15)…\n`);
+            process.stderr.write(
+              `canopy: port ${port} still in use, retrying (${attempts}/15)…\n`,
+            );
             setTimeout(tryBind, 300);
             return;
           }
@@ -550,7 +619,9 @@ function startHttpServer(port) {
             killPortOwner(port).then((killed) => {
               if (killed) {
                 attempts = 0;
-                process.stderr.write(`canopy: waiting for port ${port} to clear after force-kill…\n`);
+                process.stderr.write(
+                  `canopy: waiting for port ${port} to clear after force-kill…\n`,
+                );
                 setTimeout(tryBind, 500);
               } else {
                 reject(err);
@@ -565,7 +636,9 @@ function startHttpServer(port) {
         httpPort = port;
         httpServer = srv;
         writePidFile();
-        process.stderr.write(`canopy HTTP server listening on http://127.0.0.1:${port}\n`);
+        process.stderr.write(
+          `canopy HTTP server listening on http://127.0.0.1:${port}\n`,
+        );
         resolve();
       });
     };
@@ -580,143 +653,434 @@ function startHttpServer(port) {
 
 const DEFAULT_INSTRUCTIONS = `\
 You are a diagram generation assistant with access to a Kroki-based rendering \
-server supporting 27 diagram formats. Your job is to select the right format, \
-apply consistent visual style, and render high-quality diagrams.
+server supporting 27 diagram formats.
+
+Your job is to:
+• select the correct diagram format
+• apply consistent visual style
+• generate diagrams that render reliably
+• keep diagrams readable and structurally stable
+
+Always prioritize:
+- clarity
+- layout stability
+- visual consistency
+- Kroki rendering reliability
 
 ---
 
-## FORMAT SELECTION
+# FORMAT SELECTION
 
-Unless the user specifies a format, choose based on the diagram's primary intent:
+Unless the user specifies a format, choose based on the diagram's intent.
 
 | Diagram intent | Format |
 |---|---|
-| Directional pipeline, agent flow, data movement with clear left→right or top→down path | **d2** |
-| Architecture with colored grouped clusters, cross-group arrows, DAG-style flows | **graphviz** |
-| Sequence diagram, UML (class, component, state machine, activity) | **plantuml** |
-| Quick flowchart or simple graph, especially for documentation embedding | **mermaid** |
-| Network topology, rack diagrams, packet structures | **nwdiag / rackdiag / packetdiag** |
-| BPMN business process flows | **bpmn** |
-| Entity-relationship / database schema | **erd** |
+Directional pipeline or agent flow | d2
+Architecture with grouped systems | graphviz
+Sequence or UML | plantuml
+Quick documentation flowchart | mermaid
+Network topology | nwdiag / rackdiag / packetdiag
+Business process flow | bpmn
+Database schema | erd
 
-**Decision shortcuts:**
-- Has named colored groups/clusters with internal nodes? → **graphviz**
-- Is it a sequence of events between actors over time? → **plantuml**
-- Is it a clean linear pipeline or agent loop? → **d2**
-- Ambiguous or mixed? Default to **graphviz** for architecture, **d2** for flows
+Decision shortcuts:
 
-**Never use excalidraw for generated diagrams.** It requires manual pixel coordinates and is not LLM-writable.
+Clusters with subsystems → graphviz  
+Actor timeline → plantuml  
+Linear processing pipeline → d2  
+
+If ambiguous:
+architecture → graphviz  
+pipeline → d2  
+
+Never use **excalidraw** because it requires manual coordinates.
 
 ---
 
-## VISUAL STYLE GUIDE
-
-Apply these rules to every diagram unless the user overrides them.
+# VISUAL STYLE GUIDE
 
 ### Canvas
-- Background: \`#FEFDF6\` (warm off-white)
-- Flat design — no shadows
-- Generous padding around all elements
 
-### Color system — assign by structural role, not domain
+Background  
+#FEFDF6
+
+Flat design  
+No shadows  
+Generous spacing around clusters
+
+---
+
+# COLOR SYSTEM
+
+Assign color by structural role.
 
 | Role | Fill | Stroke | Text |
 |---|---|---|---|
-| Entry / Input | \`#FFFFFF\` | \`#AAAAAA\` | \`#333333\` |
-| Transform / Process | \`#FFF9C4\` | \`#F9A825\` | \`#5D4037\` |
-| Compute / Execute | \`#BBDEFB\` | \`#1565C0\` | \`#0D3C6E\` |
-| Store / Persist | \`#E1BEE7\` | \`#6A1B9A\` | \`#4A1070\` |
-| Orchestrate / Route | \`#B2EBF2\` | \`#00838F\` | \`#004D56\` |
-| Validate / Control | \`#C8E6C9\` | \`#388E3C\` | \`#1B5E20\` |
-| Evaluate / Output | \`#FFE0B2\` | \`#E65100\` | \`#7C3200\` |
-| Alert / Exception | \`#F8BBD0\` | \`#E53935\` | \`#A31515\` |
-| Auxiliary / Optional | \`#F5F5F5\` | \`#9E9E9E\` | \`#555555\` |
+Entry / Input | #FFFFFF | #AAAAAA | #333333
+Transform / Process | #FFF9C4 | #F9A825 | #5D4037
+Compute / Execute | #BBDEFB | #1565C0 | #0D3C6E
+Storage / Persist | #E1BEE7 | #6A1B9A | #4A1070
+Orchestrate / Route | #B2EBF2 | #00838F | #004D56
+Validate / Control | #C8E6C9 | #388E3C | #1B5E20
+Evaluate / Output | #FFE0B2 | #E65100 | #7C3200
+Alert / Exception | #F8BBD0 | #E53935 | #A31515
+Auxiliary / Optional | #F5F5F5 | #9E9E9E | #555555
 
-Inner nodes inside a cluster use a lighter version of the cluster fill (approximately 30% lighter / mixed with white). Reference:
+Inner nodes inside clusters must use lighter versions.
 
-| Cluster fill | Inner node fill |
-|---|---|
-| \`#FFF9C4\` | \`#FFFDE7\` |
-| \`#BBDEFB\` | \`#E3F2FD\` |
-| \`#E1BEE7\` | \`#F3E5F5\` |
-| \`#B2EBF2\` | \`#E0F7FA\` |
-| \`#C8E6C9\` | \`#DCEDC8\` |
-| \`#FFE0B2\` | \`#FFF3E0\` |
-| \`#F8BBD0\` | \`#FFCDD2\` |
+Cluster → Inner node
 
-### Shapes
-- All nodes and clusters: rounded corners (8–12px). Never sharp rectangles.
-- Cluster stroke: 2px. Node stroke: 1px.
-- Storage nodes: cylinder shape where the format supports it.
-- No shadows.
-
-### Edges
-- Primary flow: solid · \`#444444\` · 1.5px
-- Secondary: solid · \`#767676\` · 1px
-- Alert / exception path: dashed · \`#E53935\` · 2px
-- Feedback / loop: dashed · \`#555555\` · 1px
-- Primary label font: \`#444444\` · secondary label font: \`#5C5C5C\`
-- Labels: 2–3 words max, 10pt, placed mid-edge
-
-### Typography
-- Font: Arial or clean sans-serif
-- Never white text on pastel — always use a dark shade of the stroke color
-- Cluster header: 13pt bold, stroke color
-- Node label: 11–12pt bold, stroke color
-- Node sublabel: 9–10pt regular, \`#666666\`
-- Edge label: 10pt regular, \`#444444\`
-
-### Layout
-- Pipelines: left-to-right (\`LR\`)
-- Hierarchies and architectures: top-to-bottom (\`TB\`)
-- Entry point: top-left or left edge
-- Terminal output / evaluation: bottom-right or far-right
-- Alert / exception cluster: top-right, arrows flow downward into main flow
-- Nodes at the same logical stage share the same rank or row
-- Spacing: \`nodesep ≥ 0.6\`, \`ranksep ≥ 0.8\`
+#FFF9C4 → #FFFDE7  
+#BBDEFB → #E3F2FD  
+#E1BEE7 → #F3E5F5  
+#B2EBF2 → #E0F7FA  
+#C8E6C9 → #DCEDC8  
+#FFE0B2 → #FFF3E0  
+#F8BBD0 → #FFCDD2  
 
 ---
 
-## FORMAT-SPECIFIC DEFAULTS
+# SHAPES
 
-### graphviz
-\`\`\`
-compound=true   (always — required for cross-cluster arrows)
+Nodes  
+rounded rectangle
+
+Corner radius  
+8–12
+
+Cluster border  
+2px
+
+Storage nodes  
+cylinder when format supports it
+
+No shadows.
+
+---
+
+# EDGE STYLE
+
+Primary flow  
+solid  
+#444444  
+1.5px
+
+Secondary  
+solid  
+#767676  
+1px
+
+Exception path  
+dashed  
+#E53935  
+2px
+
+Feedback loop  
+dashed  
+#555555  
+
+Edge labels
+
+• maximum 2–3 words  
+• 10pt  
+• centered  
+
+Always prefix label with a space.
+
+Example
+
+label=" parses body"
+
+This prevents label overlap with the line.
+
+---
+
+# TYPOGRAPHY
+
+Font  
+Arial
+
+Cluster title  
+13pt bold
+
+Node label  
+11–12pt bold
+
+Node sublabel  
+9–10pt
+
+Edge label  
+10pt
+
+Never use white text on pastel colors.
+
+---
+
+# LAYOUT PRINCIPLES
+
+Architectures  
+Top-to-bottom (TB)
+
+Pipelines  
+Left-to-right (LR)
+
+Entry nodes  
+Top-left
+
+Outputs  
+Bottom-right
+
+Alert / monitoring systems  
+Top-right cluster
+
+Nodes at the same stage should share the same rank.
+
+Spacing
+
+nodesep ≥ 0.6  
+ranksep ≥ 0.8
+
+---
+
+# STRUCTURAL GUIDANCE FOR ARCHITECTURE DIAGRAMS
+
+Architecture diagrams are easier to read and render when they follow a layered flow.
+
+Typical structure:
+
+Entry / Interface  
+↓  
+Processing / Compute  
+↓  
+Storage / Persistence  
+
+Optional additional layer:
+
+Observability / Security / Monitoring
+
+Clusters usually represent subsystems inside one of these layers.
+
+Edges typically move forward across layers rather than randomly between components.
+
+Avoid chaotic cross-connections whenever possible.
+
+This structure significantly improves Graphviz layout stability.
+
+---
+
+# NODE NAMING GUIDELINES
+
+Node identifiers must be:
+
+• short  
+• snake_case  
+• unique  
+
+Examples:
+
+api_gateway  
+embedding_service  
+vector_db  
+workflow_engine  
+
+Avoid spaces in identifiers.
+
+Human-readable labels can still include spaces.
+
+---
+
+# COMPLEXITY GUIDELINES
+
+Preferred diagram size:
+
+8–20 nodes
+
+If architecture becomes large:
+
+• group components into clusters  
+• avoid showing every micro-component
+
+When diagrams exceed:
+
+• 25 nodes  
+• 8 clusters  
+
+Break the architecture into **multiple smaller diagrams** instead of forcing one large diagram.
+
+Example breakdown:
+
+1️⃣ High-level system architecture  
+2️⃣ Internal service architecture  
+3️⃣ Data flow architecture  
+4️⃣ Deployment architecture
+
+Multiple focused diagrams are preferred over one dense diagram.
+
+---
+
+# FORMAT-SPECIFIC RULES
+
+## GRAPHVIZ
+
+Graphviz is the preferred format for architecture diagrams.
+
+Default configuration:
+
+compound=true  
+splines=true  
+nodesep=0.6  
+ranksep=0.8  
+pad=0.4  
+margin=0.2  
+
+node [
+  style="filled,rounded"
+  shape=box
+  fontname="Arial"
+  fontsize=11
+]
+
+edge [
+  fontname="Arial"
+  fontsize=10
+  color="#444444"
+  penwidth=1.5
+]
+
+IMPORTANT
+
+Never use
+
 splines=ortho
-nodesep=0.6
-ranksep=0.8
-node [style="filled,rounded" shape=box fontname="Arial" fontsize=11]
-edge [fontname="Arial" fontsize=10 color="#444444" penwidth=1.5]
-\`\`\`
-Use \`lhead\` / \`ltail\` for all cross-cluster arrows.
-Always prefix edge labels with a leading space: \`label=" text"\` not \`label="text"\` — Graphviz places labels directly on the stroke with no padding; the leading space provides the only breathing room.
 
-### d2
-\`\`\`
-direction: down  (or right for pipelines)
-style.border-radius: 10  (on all nodes and containers)
-style.bold: true  (on node labels)
-\`\`\`
+Orthogonal routing combined with clusters causes:
 
-### plantuml
-\`\`\`
-!theme plain
-skinparam backgroundColor #FEFDF6
-skinparam defaultFontName Arial
-skinparam RoundCorner 10
-skinparam shadowing false
-\`\`\`
+• invisible arrows  
+• clipped edges  
+• routing failures  
+
+Always use smooth splines.
 
 ---
 
-## BEHAVIOR RULES
+# GRAPHVIZ CLUSTER GUIDELINES
 
-1. **Always state the format chosen and one-line reason** before rendering, unless the user specified the format.
-2. **Render immediately** — do not ask for clarification unless the request is genuinely ambiguous (missing key relationships or nodes).
-3. **If a diagram fails to render**, diagnose the syntax error, fix it, and re-render without asking the user.
-4. **Share the preview URL** as a clickable link after every successful render.
-5. **If the user asks to iterate**, apply only the requested changes and re-render the full diagram.
-6. For very complex diagrams (10+ clusters), prefer **graphviz** regardless of other signals — its layout engine handles density better than d2.`;
+Clusters represent:
+
+• subsystems  
+• service boundaries  
+• architectural layers  
+• protocol stacks
+
+Clusters should ideally contain **3–8 nodes**.
+
+Very large clusters should be split.
+
+Clusters must include padding.
+
+pad=0.4  
+margin=0.2
+
+---
+
+# CROSS-CLUSTER EDGES
+
+Prefer node-to-node edges.
+
+Example
+
+api_gateway → user_service
+
+Avoid cluster boundary routing unless necessary.
+
+Use lhead / ltail only when explicitly visualizing boundaries.
+
+---
+
+# RANK ALIGNMENT
+
+Use invisible edges sparingly to maintain layout alignment.
+
+Example
+
+nodeA -> nodeB [style=invis]
+
+Avoid long chains of invisible edges.
+
+---
+
+# PRE-RENDER REASONING STEP
+
+Before generating a diagram:
+
+1. Identify the main system components
+2. Group components into clusters
+3. Determine flow direction (LR or TB)
+4. Decide entry and output nodes
+5. Limit cluster size where possible
+6. Ensure edges mostly flow forward
+
+Then render the diagram.
+
+This greatly improves diagram stability.
+
+---
+
+# D2 DEFAULTS
+
+direction: down  
+style.border-radius: 10  
+style.bold: true  
+
+Use for:
+
+• pipelines  
+• agent loops  
+• linear workflows
+
+---
+
+# PLANTUML DEFAULTS
+
+!theme plain  
+skinparam backgroundColor #FEFDF6  
+skinparam defaultFontName Arial  
+skinparam RoundCorner 10  
+skinparam shadowing false  
+
+---
+
+# BEHAVIOR RULES
+
+1. State the format chosen and a one-line reason (unless user specified format).
+2. Render the diagram immediately.
+3. If syntax fails, fix it and retry automatically.
+4. Always provide the preview URL after rendering.
+5. When iterating, modify only the requested parts.
+6. For large architectures, prefer multiple smaller diagrams rather than one dense diagram.
+
+---
+
+# RENDERING STABILITY PRINCIPLES
+
+Avoid:
+
+• splines=ortho  
+• excessive invisible edges  
+• cluster-to-cluster edges  
+• long edge labels  
+• deeply nested clusters  
+
+Prefer:
+
+• node-to-node edges  
+• layered architecture layouts  
+• balanced cluster sizes  
+• forward flow diagrams  
+• smooth spline routing  
+
+Following these guidelines ensures diagrams render consistently across Kroki and Graphviz.
+`;
 
 /**
  * Builds the instructions string for the MCP initialize response.
@@ -744,14 +1108,25 @@ function buildInstructions() {
 // MCP server
 // ---------------------------------------------------------------------------
 
-const server = new McpServer({ name: "canopy", version: "1.0.0" }, { instructions: buildInstructions() });
+const server = new McpServer(
+  { name: "canopy", version: "1.0.0" },
+  { instructions: buildInstructions() },
+);
+
+// Stable protocol constants for ext-apps inline preview.
+// RESOURCE_MIME_TYPE is the wire-level MIME type defined by the MCP Apps spec —
+// hardcoding it avoids an ESM dynamic import of @modelcontextprotocol/ext-apps
+// from this CJS module. Non-UI MCP clients ignore _meta and structuredContent entirely.
+const RESOURCE_MIME_TYPE = "text/html;profile=mcp-app";
+const PREVIEW_RESOURCE_URI = "ui://canopy/preview";
 
 // ------ get_diagram_preferences ---------------------------------------------
 
 server.registerTool(
   "get_diagram_preferences",
   {
-    description: "Returns the diagram style guide and format selection rules to apply when generating diagrams. Call this at the start of any diagram-related conversation.",
+    description:
+      "Returns the diagram style guide and format selection rules to apply when generating diagrams. Call this at the start of any diagram-related conversation.",
     inputSchema: z.object({}),
   },
   async () => ({
@@ -786,9 +1161,15 @@ server.registerTool(
       .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 
     if (results.length === 0) {
-      return { content: [{ type: "text", text: `No diagrams found matching "${query}".` }] };
+      return {
+        content: [
+          { type: "text", text: `No diagrams found matching "${query}".` },
+        ],
+      };
     }
-    return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+    return {
+      content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+    };
   },
 );
 
@@ -797,7 +1178,8 @@ server.registerTool(
 server.registerTool(
   "list_supported_types",
   {
-    description: "List all supported Kroki diagram types with their file extensions and output formats.",
+    description:
+      "List all supported Kroki diagram types with their file extensions and output formats.",
     inputSchema: z.object({}),
   },
   async () => {
@@ -806,20 +1188,75 @@ server.registerTool(
       return acc;
     }, {});
 
-    const mdByType = Object.entries(MARKDOWN_LANG).reduce((acc, [lang, type]) => {
-      acc[type] = acc[type] ? `${acc[type]}, ${lang}` : lang;
-      return acc;
-    }, {});
+    const mdByType = Object.entries(MARKDOWN_LANG).reduce(
+      (acc, [lang, type]) => {
+        acc[type] = acc[type] ? `${acc[type]}, ${lang}` : lang;
+        return acc;
+      },
+      {},
+    );
 
-    const lines = Object.entries(byType).map(([type, exts]) =>
-      `${type.padEnd(14)} ext: ${exts.padEnd(36)} output: ${(OUTPUT_FORMAT[type] ?? "png").padEnd(4)}  md: ${mdByType[type] ?? type}`,
+    const lines = Object.entries(byType).map(
+      ([type, exts]) =>
+        `${type.padEnd(14)} ext: ${exts.padEnd(36)} output: ${(OUTPUT_FORMAT[type] ?? "png").padEnd(4)}  md: ${mdByType[type] ?? type}`,
     );
 
     return { content: [{ type: "text", text: lines.join("\n") }] };
   },
 );
 
+// ------ get_diagram_image (app-only) ----------------------------------------
+// Called by the App client (iframe) via app.callServerTool() — not by the LLM.
+// Returns the image bytes as base64 so the iframe can display them as a data URL
+// without making any HTTP requests (bypasses iframe sandbox restrictions entirely).
+
+server.registerTool(
+  "get_diagram_image",
+  {
+    description:
+      "Internal helper: returns a rendered diagram's image data for the preview widget. " +
+      "Not intended for direct use — the diagram preview widget calls this automatically.",
+    inputSchema: z.object({
+      id: z.string().describe("The diagram ID (hex string from the registry)."),
+    }),
+    _meta: { ui: { visibility: ["app"] } },
+  },
+  async ({ id }) => {
+    loadRegistry();
+    const entry = fileRegistry.get(id);
+    if (!entry || !fs.existsSync(entry.filePath)) {
+      return {
+        content: [{ type: "text", text: JSON.stringify({ error: "not found" }) }],
+        isError: true,
+      };
+    }
+    const data = fs.readFileSync(entry.filePath);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ data: data.toString("base64"), mimeType: entry.mimeType }),
+        },
+      ],
+    };
+  },
+);
+
 // ------ render_diagram ------------------------------------------------------
+
+/**
+ * Reads the pre-built App client HTML from dist/src/mcp-app.html.
+ * Built by `npm run build:ui` (Vite + vite-plugin-singlefile).
+ * The bundled file is self-contained — no external CDN requests at runtime.
+ *
+ * @returns {string}
+ */
+function readPreviewHtml() {
+  return fs.readFileSync(
+    path.join(__dirname, "dist", "src", "mcp-app.html"),
+    "utf-8",
+  );
+}
 
 server.registerTool(
   "render_diagram",
@@ -830,16 +1267,25 @@ server.registerTool(
       "Do NOT attempt to embed, display, or render the image — it lives on the user's Mac filesystem, not in your container.",
     inputSchema: z.object({
       source: z.string().describe("The diagram source text."),
-      type: z.string().describe(
-        "Kroki diagram type (e.g. plantuml, mermaid, graphviz, d2). Run list_supported_types for the full list.",
-      ),
-      title: z.string().optional().describe(
-        "Short descriptive title for this diagram (stored for gallery and search).",
-      ),
-      output_path: z.string().optional().describe(
-        "Where to save the output image. If omitted, saves to ~/.canopy/output/ (persistent).",
-      ),
+      type: z
+        .string()
+        .describe(
+          "Kroki diagram type (e.g. plantuml, mermaid, graphviz, d2). Run list_supported_types for the full list.",
+        ),
+      title: z
+        .string()
+        .optional()
+        .describe(
+          "Short descriptive title for this diagram (stored for gallery and search).",
+        ),
+      output_path: z
+        .string()
+        .optional()
+        .describe(
+          "Where to save the output image. If omitted, saves to ~/.canopy/output/ (persistent).",
+        ),
     }),
+    _meta: { ui: { resourceUri: PREVIEW_RESOURCE_URI } },
   },
   async ({ source, type: diagramType, title, output_path }) => {
     const fmt = OUTPUT_FORMAT[diagramType] ?? "png";
@@ -855,10 +1301,16 @@ server.registerTool(
         fs.mkdirSync(path.dirname(outputPath), { recursive: true });
         // Will register after render succeeds
       } catch {
-        ({ filePath: outputPath, previewUrl } = allocateOutput(fmt, title ?? null));
+        ({ filePath: outputPath, previewUrl } = allocateOutput(
+          fmt,
+          title ?? null,
+        ));
       }
     } else {
-      ({ filePath: outputPath, previewUrl } = allocateOutput(fmt, title ?? null));
+      ({ filePath: outputPath, previewUrl } = allocateOutput(
+        fmt,
+        title ?? null,
+      ));
     }
 
     const krokiUrl = await resolveKrokiUrl();
@@ -867,7 +1319,10 @@ server.registerTool(
       const data = await krokiRender(source, diagramType, krokiUrl);
       fs.writeFileSync(outputPath, data);
       // Register user-provided path now that the file exists
-      if (!previewUrl) previewUrl = registerFile(outputPath, mimeType, title ?? null);
+      if (!previewUrl)
+        previewUrl = registerFile(outputPath, mimeType, title ?? null);
+      // Extract the hex ID from the gallery URL (?id=<id>) for the App client.
+      const imageId = new URL(previewUrl).searchParams.get("id");
       return {
         content: [
           {
@@ -880,14 +1335,42 @@ server.registerTool(
               `(File saved at: ${outputPath})`,
           },
         ],
+        // structuredContent is consumed by UI-capable clients (e.g. Claude Desktop).
+        // imageId is fetched by the App client via app.callServerTool("get_diagram_image")
+        // — no HTTP request from the iframe, no LLM token cost.
+        structuredContent: { imageId, title: title ?? null },
       };
     } catch (err) {
       return {
-        content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }],
+        content: [
+          {
+            type: "text",
+            text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ],
         isError: true,
       };
     }
   },
+);
+
+// Preview resource — consumed by UI-capable clients to render the inline iframe.
+// The HTML is pre-built by `npm run build:ui` (Vite + vite-plugin-singlefile):
+// all JS including the ext-apps App client is inlined. No external CDN needed,
+// so no CSP configuration is required.
+server.registerResource(
+  "Canopy Diagram Preview",
+  PREVIEW_RESOURCE_URI,
+  { mimeType: RESOURCE_MIME_TYPE },
+  async () => ({
+    contents: [
+      {
+        uri: PREVIEW_RESOURCE_URI,
+        mimeType: RESOURCE_MIME_TYPE,
+        text: readPreviewHtml(),
+      },
+    ],
+  }),
 );
 
 // ------ render_file ---------------------------------------------------------
@@ -900,15 +1383,23 @@ server.registerTool(
       "IMPORTANT: Always share the preview URL(s) directly with the user as clickable links. " +
       "Do NOT attempt to embed or render the image. Supports all diagram formats and .md files with embedded diagram blocks.",
     inputSchema: z.object({
-      file_path: z.string().describe(
-        "Absolute path to the diagram source file (.puml, .mmd, .md, etc.).",
-      ),
-      title: z.string().optional().describe(
-        "Short descriptive title for this diagram (stored for gallery and search). Defaults to the source filename.",
-      ),
-      output_dir: z.string().optional().describe(
-        "Directory to write the output image(s) to. Defaults to ~/.canopy/output/ (persistent).",
-      ),
+      file_path: z
+        .string()
+        .describe(
+          "Absolute path to the diagram source file (.puml, .mmd, .md, etc.).",
+        ),
+      title: z
+        .string()
+        .optional()
+        .describe(
+          "Short descriptive title for this diagram (stored for gallery and search). Defaults to the source filename.",
+        ),
+      output_dir: z
+        .string()
+        .optional()
+        .describe(
+          "Directory to write the output image(s) to. Defaults to ~/.canopy/output/ (persistent).",
+        ),
     }),
   },
   async ({ file_path, title, output_dir }) => {
@@ -916,7 +1407,9 @@ server.registerTool(
 
     if (!fs.existsSync(resolvedInput)) {
       return {
-        content: [{ type: "text", text: `Error: File not found: ${resolvedInput}` }],
+        content: [
+          { type: "text", text: `Error: File not found: ${resolvedInput}` },
+        ],
         isError: true,
       };
     }
@@ -924,10 +1417,12 @@ server.registerTool(
     const ext = path.extname(resolvedInput);
     if (!SUPPORTED_EXTENSIONS.has(ext)) {
       return {
-        content: [{
-          type: "text",
-          text: `Error: Unsupported extension: ${ext}. Run list_supported_types for supported formats.`,
-        }],
+        content: [
+          {
+            type: "text",
+            text: `Error: Unsupported extension: ${ext}. Run list_supported_types for supported formats.`,
+          },
+        ],
         isError: true,
       };
     }
@@ -949,20 +1444,27 @@ server.registerTool(
 
     try {
       if (ext === ".md") {
-        const result = await renderMarkdownFile(resolvedInput, outDir, krokiUrl);
+        const result = await renderMarkdownFile(
+          resolvedInput,
+          outDir,
+          krokiUrl,
+        );
         const validPaths = result.outputs.filter(Boolean);
         const mdBase = path.basename(resolvedInput, ".md");
         const lines = validPaths.map((p) => {
           const fmt = path.extname(p).slice(1);
           const mime = fmt === "svg" ? "image/svg+xml" : "image/png";
           const blockName = path.basename(p, `.${fmt}`);
-          const entryTitle = title ? `${title} — ${blockName}` : `${mdBase} — ${blockName}`;
+          const entryTitle = title
+            ? `${title} — ${blockName}`
+            : `${mdBase} — ${blockName}`;
           const url = registerFile(p, mime, entryTitle);
           return `  ${path.basename(p)}  →  ${url}`;
         });
         const summary =
           `Rendered ${result.ok} diagram(s) from ${path.basename(resolvedInput)}` +
-          (result.failed > 0 ? ` (${result.failed} failed)` : "") + ":";
+          (result.failed > 0 ? ` (${result.failed} failed)` : "") +
+          ":";
         return {
           content: [{ type: "text", text: `${summary}\n${lines.join("\n")}` }],
         };
@@ -993,7 +1495,12 @@ server.registerTool(
       }
     } catch (err) {
       return {
-        content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }],
+        content: [
+          {
+            type: "text",
+            text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ],
         isError: true,
       };
     }
@@ -1009,7 +1516,9 @@ server.registerTool(
       "Rename a previously rendered diagram by its ID. Use search_diagrams to find the ID. " +
       "Useful for giving titles to diagrams that were rendered without one.",
     inputSchema: z.object({
-      id: z.string().describe("The diagram ID (short hex string from a preview URL)."),
+      id: z
+        .string()
+        .describe("The diagram ID (short hex string from a preview URL)."),
       title: z.string().describe("New title for the diagram."),
     }),
   },
@@ -1018,7 +1527,9 @@ server.registerTool(
     const entry = fileRegistry.get(id);
     if (!entry) {
       return {
-        content: [{ type: "text", text: `Error: No diagram found with ID "${id}".` }],
+        content: [
+          { type: "text", text: `Error: No diagram found with ID "${id}".` },
+        ],
         isError: true,
       };
     }
@@ -1039,7 +1550,9 @@ server.registerTool(
       "Delete a previously rendered diagram by its ID, removing it from the registry and from disk. " +
       "Use search_diagrams to find the ID.",
     inputSchema: z.object({
-      id: z.string().describe("The diagram ID (short hex string from a preview URL)."),
+      id: z
+        .string()
+        .describe("The diagram ID (short hex string from a preview URL)."),
     }),
   },
   async ({ id }) => {
@@ -1047,7 +1560,9 @@ server.registerTool(
     const entry = fileRegistry.get(id);
     if (!entry) {
       return {
-        content: [{ type: "text", text: `Error: No diagram found with ID "${id}".` }],
+        content: [
+          { type: "text", text: `Error: No diagram found with ID "${id}".` },
+        ],
         isError: true,
       };
     }

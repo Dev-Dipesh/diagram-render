@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Kroki-based multi-format diagram to PNG renderer — no runtime dependencies",
   "scripts": {
+    "build:ui": "vite build",
     "render": "node generate.cjs",
     "render:one": "node generate.cjs",
     "mcp": "node mcp.cjs"
@@ -12,6 +13,11 @@
     "canopy-mcp": "./mcp.cjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.2.2",
     "@modelcontextprotocol/sdk": "^1.10.2"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1",
+    "vite-plugin-singlefile": "^2.3.0"
   }
 }
