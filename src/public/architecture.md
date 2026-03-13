@@ -36,11 +36,6 @@ package "MCP path" {
   component "HTTP :17432\n(gallery server)" as http
 }
 
-package "Claude Desktop" {
-  component "Chat response\n(Preview URL)" as chat
-  component "Inline widget\n(iframe · App client)" as widget
-}
-
 cloud "Kroki" as kroki {
   component "localhost:8000\n(Docker)" as local
   component "kroki.io" as pub
@@ -58,12 +53,8 @@ ai --> mcp : render_diagram()\nrender_file()
 mcp --> local : POST source
 mcp --> store : save <id>.<ext>
 mcp --> reg : store (id, path)
-mcp --> ai : Preview URL\n+ structuredContent {imageId}
-ai --> chat : clickable link
+mcp --> ai : Preview URL\n(+ inline widget in Claude Desktop)
 reg ..> http : serves file
-
-widget ..> mcp : get_diagram_image(id)\n[App client, no LLM cost]
-mcp ..> widget : base64 bytes
 @enduml
 ```
 
