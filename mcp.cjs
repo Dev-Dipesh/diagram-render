@@ -67,6 +67,8 @@ const HTTP_PORT_START = parseInt(
   process.env.DIAGRAM_RENDER_HTTP_PORT ?? "17432",
   10,
 );
+const HTTP_BIND_HOST = process.env.DIAGRAM_RENDER_BIND_HOST ?? "127.0.0.1";
+const HTTP_PUBLIC_BASE_URL = process.env.DIAGRAM_RENDER_PUBLIC_BASE_URL ?? null;
 
 /** Actual bound port — set by startHttpServer(), used by registerFile(). */
 let httpPort = null;
@@ -84,7 +86,7 @@ const SERVER_VERSION = String(fs.statSync(__filename).mtimeMs);
 // Persistent storage paths
 // ---------------------------------------------------------------------------
 
-const HOME_DIR = path.join(os.homedir(), ".canopy");
+const HOME_DIR = process.env.CANOPY_HOME_DIR ?? path.join(os.homedir(), ".canopy");
 const OUTPUT_DIR = path.join(HOME_DIR, "output");
 const REGISTRY_FILE = path.join(HOME_DIR, "registry.json");
 const PID_FILE = path.join(HOME_DIR, "server.pid");
@@ -214,6 +216,10 @@ function persistRegistry() {
  * @param {string|null} title - Optional human-readable title for gallery/search.
  * @returns {string} Preview URL.
  */
+function previewBaseUrl() {
+  return HTTP_PUBLIC_BASE_URL ?? `http://127.0.0.1:${httpPort}`;
+}
+
 function registerFile(filePath, mimeType, title = null) {
   const id = crypto.randomBytes(6).toString("hex");
   fileRegistry.set(id, {
@@ -223,7 +229,7 @@ function registerFile(filePath, mimeType, title = null) {
     createdAt: new Date().toISOString(),
   });
   persistRegistry();
-  return `http://127.0.0.1:${httpPort}/?id=${id}`;
+  return `${previewBaseUrl()}/?id=${id}`;
 }
 
 /**
@@ -246,7 +252,7 @@ function allocateOutput(fmt, title = null) {
     createdAt: new Date().toISOString(),
   });
   persistRegistry();
-  return { filePath, previewUrl: `http://127.0.0.1:${httpPort}/?id=${id}` };
+  return { filePath, previewUrl: `${previewBaseUrl()}/?id=${id}` };
 }
 
 // ---------------------------------------------------------------------------
@@ -632,12 +638,12 @@ function startHttpServer(port) {
         }
         reject(err);
       });
-      srv.listen(port, "127.0.0.1", () => {
+      srv.listen(port, HTTP_BIND_HOST, () => {
         httpPort = port;
         httpServer = srv;
         writePidFile();
         process.stderr.write(
-          `canopy HTTP server listening on http://127.0.0.1:${port}\n`,
+          `canopy HTTP server listening on http://${HTTP_BIND_HOST}:${port} (public: ${previewBaseUrl()})\n`,
         );
         resolve();
       });
@@ -1155,7 +1161,7 @@ server.registerTool(
       .map(([id, entry]) => ({
         id,
         title: entry.title,
-        previewUrl: `http://127.0.0.1:${httpPort}/?id=${id}`,
+        previewUrl: `${previewBaseUrl()}/?id=${id}`,
         createdAt: entry.createdAt ?? null,
       }))
       .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
@@ -1331,7 +1337,7 @@ server.registerTool(
               `Rendered ${diagramType} diagram (${fmt}).\n\n` +
               `Share this URL with the user so they can open it in their browser:\n` +
               `${previewUrl}\n\n` +
-              `Gallery (all diagrams): http://127.0.0.1:${httpPort}/\n` +
+              `Gallery (all diagrams): ${previewBaseUrl()}/\n` +
               `(File saved at: ${outputPath})`,
           },
         ],
@@ -1487,7 +1493,7 @@ server.registerTool(
                 `Rendered ${diagramType} (${fmt}).\n\n` +
                 `Share this URL with the user so they can open it in their browser:\n` +
                 `${previewUrl}\n\n` +
-                `Gallery (all diagrams): http://127.0.0.1:${httpPort}/\n` +
+                `Gallery (all diagrams): ${previewBaseUrl()}/\n` +
                 `(File saved at: ${outputPath})`,
             },
           ],
