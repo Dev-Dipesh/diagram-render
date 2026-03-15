@@ -216,7 +216,8 @@ The MCP server exposes diagram rendering as AI tools. It starts an HTTP file ser
 
 | Tool | Description |
 |------|-------------|
-| `get_diagram_preferences` | Returns the format selection rules and visual style guide |
+| `get_diagram_preferences` | Returns the main format selection rules and visual style guide |
+| `get_excalidraw_preferences` | Returns the Excalidraw-specific guide for hand-drawn diagrams, camera-guided reveals, restoreCheckpoint flows, and delete-based transformations |
 | `render_diagram` | Render diagram source text → inline preview + browser URL |
 | `render_file` | Render a source file from disk → preview URL(s) |
 | `list_supported_types` | List all supported Kroki types and extensions |
@@ -260,6 +261,9 @@ Restart Claude Desktop after editing. The MCP server starts automatically when t
 - `diagrams/private/` and `src/private/` are gitignored — use them for sensitive diagrams.
 - Non-diagram code blocks in `.md` files are silently skipped.
 - Rendered images are saved to `~/.canopy/output/` and persist across reboots. The registry is persisted to `~/.canopy/registry.json` and reloaded on each server start, so preview URLs remain valid indefinitely as long as the image file exists on disk.
-- The MCP server ships a built-in diagram style guide (format selection rules, color system, layout defaults) injected automatically into supporting clients. To override or extend it, create `~/.canopy/preferences.md` — its contents are appended under a `USER PREFERENCES` section on every server start. In Claude Desktop, call `get_diagram_preferences` at the start of a chat to load the style guide manually.
+- The MCP server ships a built-in main diagram style guide (format selection rules, color system, layout defaults) injected automatically into supporting clients. The guide now prefers PlantUML over Graphviz for most architecture and agent-system diagrams because it produces more stable, easier-to-read layouts for article, slide, and documentation use.
+- Use `get_diagram_preferences` at the start of normal diagram work. Use `get_excalidraw_preferences` when the user explicitly wants an Excalidraw-style whiteboard, camera-guided reveal, or delete/restoreCheckpoint transformation workflow.
+- The built-in guide also recommends titles, compact legends, selective numbering, and splitting large architecture diagrams into several smaller focused diagrams instead of forcing one dense image.
+- To override or extend the main guide, create `~/.canopy/preferences.md` — its contents are appended under a `USER PREFERENCES` section on every server start.
 - **Claude Desktop inline preview** uses the MCP Apps (`@modelcontextprotocol/ext-apps`) protocol. The App client is pre-built into `dist/src/mcp-app.html` via Vite. If you modify `src/mcp-app.js` or `src/mcp-app.html`, rebuild before restarting Claude Desktop: `npm run build:ui`.
 - The Mermaid container (`yuzutech/kroki-mermaid`) is not started by default — only the core Kroki container is. Run `make up` to start all containers including Mermaid, BPMN, BlockDiag, etc.

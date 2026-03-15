@@ -8,13 +8,14 @@
  *   { "command": "node", "args": ["/path/to/canopy/mcp.cjs"] }
  *
  * Tools:
- *   get_diagram_preferences - Returns format selection rules and visual style guide.
- *   render_diagram          - Render diagram source text, returns a preview URL.
- *   render_file             - Render a diagram file on disk, returns preview URL(s).
- *   list_supported_types    - List all Kroki diagram types and their file extensions.
- *   search_diagrams         - Search previously rendered diagrams by title keyword.
- *   rename_diagram          - Rename a diagram in the registry by ID.
- *   delete_diagram          - Delete a diagram from the registry and disk by ID.
+ *   get_diagram_preferences   - Returns format selection rules and the main visual style guide.
+ *   get_excalidraw_preferences - Returns the Excalidraw-specific drawing guide.
+ *   render_diagram            - Render diagram source text, returns a preview URL.
+ *   render_file               - Render a diagram file on disk, returns preview URL(s).
+ *   list_supported_types      - List all Kroki diagram types and their file extensions.
+ *   search_diagrams           - Search previously rendered diagrams by title keyword.
+ *   rename_diagram            - Rename a diagram in the registry by ID.
+ *   delete_diagram            - Delete a diagram from the registry and disk by ID.
  *
  * HTTP file server (same process, loopback only):
  *   GET  http://127.0.0.1:<port>/         → gallery page (all rendered diagrams)
@@ -663,15 +664,17 @@ server supporting 27 diagram formats.
 
 Your job is to:
 • select the correct diagram format
-• apply consistent visual style
+• apply a consistent visual system
 • generate diagrams that render reliably
 • keep diagrams readable and structurally stable
+• prefer comprehension over density
 
 Always prioritize:
 - clarity
 - layout stability
 - visual consistency
 - Kroki rendering reliability
+- simple structures over clever layouts
 
 ---
 
@@ -679,27 +682,34 @@ Always prioritize:
 
 Unless the user specifies a format, choose based on the diagram's intent.
 
-| Diagram intent | Format |
+| Diagram intent | Preferred format |
 |---|---|
-Directional pipeline or agent flow | d2
-Architecture with grouped systems | graphviz
-Sequence or UML | plantuml
-Quick documentation flowchart | mermaid
-Network topology | nwdiag / rackdiag / packetdiag
-Business process flow | bpmn
-Database schema | erd
+| High-level architecture with 6–18 nodes | plantuml |
+| Agent runtime or control-plane flow | plantuml |
+| Sequence / UML | plantuml |
+| Quick documentation flowchart | mermaid |
+| Linear pipeline with very few nodes | d2 |
+| Dense architecture with many crossings and grouped subsystems | graphviz |
+| Network topology | nwdiag / rackdiag / packetdiag |
+| Business process flow | bpmn |
+| Database schema | erd |
 
 Decision shortcuts:
 
-Clusters with subsystems → graphviz  
-Actor timeline → plantuml  
-Linear processing pipeline → d2  
+Layered architecture → plantuml  
+Agent coordination → plantuml  
+Sequence / timeline → plantuml  
+Simple quick flowchart → mermaid  
+If layout becomes too dense for plantuml → graphviz  
 
 If ambiguous:
-architecture → graphviz  
-pipeline → d2  
+architecture → plantuml  
+pipeline → plantuml  
 
-Never use **excalidraw** because it requires manual coordinates.
+Do not default to graphviz for architecture diagrams anymore.
+Use graphviz only when its automatic ranking/clustering is genuinely needed.
+
+If the user explicitly wants a hand-drawn Excalidraw-style diagram, animation, camera moves, restoreCheckpoint, or delete-based transformations, call **get_excalidraw_preferences** first.
 
 ---
 
@@ -712,7 +722,8 @@ Background
 
 Flat design  
 No shadows  
-Generous spacing around clusters
+Generous spacing between layers and clusters  
+Avoid crowded diagrams intended for articles or social posts
 
 ---
 
@@ -722,27 +733,49 @@ Assign color by structural role.
 
 | Role | Fill | Stroke | Text |
 |---|---|---|---|
-Entry / Input | #FFFFFF | #AAAAAA | #333333
-Transform / Process | #FFF9C4 | #F9A825 | #5D4037
-Compute / Execute | #BBDEFB | #1565C0 | #0D3C6E
-Storage / Persist | #E1BEE7 | #6A1B9A | #4A1070
-Orchestrate / Route | #B2EBF2 | #00838F | #004D56
-Validate / Control | #C8E6C9 | #388E3C | #1B5E20
-Evaluate / Output | #FFE0B2 | #E65100 | #7C3200
-Alert / Exception | #F8BBD0 | #E53935 | #A31515
-Auxiliary / Optional | #F5F5F5 | #9E9E9E | #555555
+| Entry / Input | #FFFFFF | #AAAAAA | #333333 |
+| Transform / Process | #FFF9C4 | #F9A825 | #5D4037 |
+| Compute / Execute | #BBDEFB | #1565C0 | #0D3C6E |
+| Storage / Persist | #E1BEE7 | #6A1B9A | #4A1070 |
+| Orchestrate / Route | #B2EBF2 | #00838F | #004D56 |
+| Validate / Control | #C8E6C9 | #388E3C | #1B5E20 |
+| Evaluate / Output | #FFE0B2 | #E65100 | #7C3200 |
+| Alert / Exception | #F8BBD0 | #E53935 | #A31515 |
+| Auxiliary / Optional | #F5F5F5 | #9E9E9E | #555555 |
 
-Inner nodes inside clusters must use lighter versions.
+Inner nodes inside clusters should use lighter versions of the cluster color.
 
-Cluster → Inner node
+---
 
-#FFF9C4 → #FFFDE7  
-#BBDEFB → #E3F2FD  
-#E1BEE7 → #F3E5F5  
-#B2EBF2 → #E0F7FA  
-#C8E6C9 → #DCEDC8  
-#FFE0B2 → #FFF3E0  
-#F8BBD0 → #FFCDD2  
+# LABELING, TITLES, LEGENDS, NUMBERING
+
+Use a diagram title when the diagram will be shared, embedded in docs, or used in an article.
+
+Examples:
+- title High-Level Coaching Runtime
+- title Memory Architecture
+- title Control Plane Repair Loop
+
+Add a small legend when at least one of these is true:
+- colors carry semantic meaning
+- stereotypes like <<Agent>> appear
+- there are multiple node classes and the distinction is not obvious
+
+Legend rules:
+- keep it to 3–5 rows
+- place it on the right or bottom
+- do not let the legend become larger than the diagram itself
+
+Use numbering only when order matters.
+Good cases:
+- ordered runtime stages
+- stepwise data flow
+- escalation / fallback path
+
+Numbering rules:
+- prefer 3–7 major steps
+- number either node labels or edge labels, not both
+- do not number every single edge in a dense diagram
 
 ---
 
@@ -758,7 +791,7 @@ Cluster border
 2px
 
 Storage nodes  
-cylinder when format supports it
+use simple rectangles unless the user explicitly wants cylinders or UML-specific shapes
 
 No shadows.
 
@@ -771,33 +804,29 @@ solid
 #444444  
 1.5px
 
-Secondary  
+Secondary flow  
 solid  
 #767676  
 1px
 
-Exception path  
+Exception / fallback path  
 dashed  
-#E53935  
-2px
+#E53935 or #555555  
+1.5–2px
 
-Feedback loop  
-dashed  
-#555555  
+Edge label rules:
+- maximum 2–3 words
+- short action-oriented labels
+- centered when possible
+- avoid long prose on edges
 
-Edge labels
-
-• maximum 2–3 words  
-• 10pt  
-• centered  
-
-Always prefix label with a space.
-
-Example
-
-label=" parses body"
-
-This prevents label overlap with the line.
+Examples:
+- turn
+- tool plan
+- evidence
+- repair
+- updates
+- best draft
 
 ---
 
@@ -806,286 +835,361 @@ This prevents label overlap with the line.
 Font  
 Arial
 
+Title  
+14–16pt bold
+
 Cluster title  
 13pt bold
 
 Node label  
 11–12pt bold
 
-Node sublabel  
-9–10pt
-
 Edge label  
 10pt
 
-Never use white text on pastel colors.
+Never use white text on pastel fills.
 
 ---
 
 # LAYOUT PRINCIPLES
 
-Architectures  
-Top-to-bottom (TB)
+Default architecture layout  
+left-to-right for pipelines and runtime stages
 
-Pipelines  
-Left-to-right (LR)
+top-to-bottom only when the story is clearly layered and vertical reading improves comprehension
 
-Entry nodes  
-Top-left
+Preferred reading order:
+entry / context → orchestration → reasoning / execution → control → output
 
-Outputs  
-Bottom-right
+For article-quality diagrams:
+- keep the main spine obvious
+- keep side branches short
+- avoid diagonal spaghetti
+- avoid backtracking arrows unless showing repair/fallback intentionally
 
-Alert / monitoring systems  
-Top-right cluster
-
-Nodes at the same stage should share the same rank.
-
-Spacing
-
-nodesep ≥ 0.6  
-ranksep ≥ 0.8
+Spacing:
+- prefer fewer, larger nodes over many tiny nodes
+- keep 8–14 visible nodes in one diagram when possible
+- if you exceed ~18 nodes or ~4 major clusters, split into multiple diagrams
 
 ---
 
-# STRUCTURAL GUIDANCE FOR ARCHITECTURE DIAGRAMS
-
-Architecture diagrams are easier to read and render when they follow a layered flow.
-
-Typical structure:
-
-Entry / Interface  
-↓  
-Processing / Compute  
-↓  
-Storage / Persistence  
-
-Optional additional layer:
-
-Observability / Security / Monitoring
-
-Clusters usually represent subsystems inside one of these layers.
-
-Edges typically move forward across layers rather than randomly between components.
-
-Avoid chaotic cross-connections whenever possible.
-
-This structure significantly improves Graphviz layout stability.
-
----
-
-# NODE NAMING GUIDELINES
-
-Node identifiers must be:
-
-• short  
-• snake_case  
-• unique  
-
-Examples:
-
-api_gateway  
-embedding_service  
-vector_db  
-workflow_engine  
-
-Avoid spaces in identifiers.
-
-Human-readable labels can still include spaces.
-
----
-
-# COMPLEXITY GUIDELINES
-
-Preferred diagram size:
-
-8–20 nodes
-
-If architecture becomes large:
-
-• group components into clusters  
-• avoid showing every micro-component
-
-When diagrams exceed:
-
-• 25 nodes  
-• 8 clusters  
-
-Break the architecture into **multiple smaller diagrams** instead of forcing one large diagram.
-
-Example breakdown:
-
-1️⃣ High-level system architecture  
-2️⃣ Internal service architecture  
-3️⃣ Data flow architecture  
-4️⃣ Deployment architecture
-
-Multiple focused diagrams are preferred over one dense diagram.
-
----
-
-# FORMAT-SPECIFIC RULES
-
-## GRAPHVIZ
-
-Graphviz is the preferred format for architecture diagrams.
-
-Default configuration:
-
-compound=true  
-splines=true  
-nodesep=0.6  
-ranksep=0.8  
-pad=0.4  
-margin=0.2  
-
-node [
-  style="filled,rounded"
-  shape=box
-  fontname="Arial"
-  fontsize=11
-]
-
-edge [
-  fontname="Arial"
-  fontsize=10
-  color="#444444"
-  penwidth=1.5
-]
-
-IMPORTANT
-
-Never use
-
-splines=ortho
-
-Orthogonal routing combined with clusters causes:
-
-• invisible arrows  
-• clipped edges  
-• routing failures  
-
-Always use smooth splines.
-
----
-
-# GRAPHVIZ CLUSTER GUIDELINES
-
-Clusters represent:
-
-• subsystems  
-• service boundaries  
-• architectural layers  
-• protocol stacks
-
-Clusters should ideally contain **3–8 nodes**.
-
-Very large clusters should be split.
-
-Clusters must include padding.
-
-pad=0.4  
-margin=0.2
-
----
-
-# CROSS-CLUSTER EDGES
-
-Prefer node-to-node edges.
-
-Example
-
-api_gateway → user_service
-
-Avoid cluster boundary routing unless necessary.
-
-Use lhead / ltail only when explicitly visualizing boundaries.
-
----
-
-# RANK ALIGNMENT
-
-Use invisible edges sparingly to maintain layout alignment.
-
-Example
-
-nodeA -> nodeB [style=invis]
-
-Avoid long chains of invisible edges.
-
----
-
-# PRE-RENDER REASONING STEP
-
-Before generating a diagram:
-
-1. Identify the main system components
-2. Group components into clusters
-3. Determine flow direction (LR or TB)
-4. Decide entry and output nodes
-5. Limit cluster size where possible
-6. Ensure edges mostly flow forward
-
-Then render the diagram.
-
-This greatly improves diagram stability.
-
----
-
-# D2 DEFAULTS
-
-direction: down  
-style.border-radius: 10  
-style.bold: true  
-
-Use for:
-
-• pipelines  
-• agent loops  
-• linear workflows
+# BREAK DOWN COMPLEX ARCHITECTURES
+
+Do not force a large architecture into one dense image.
+
+Prefer a family of smaller diagrams instead:
+1. high-level system architecture
+2. runtime / control-plane flow
+3. memory architecture
+4. artifact / tool path
+5. capability snapshot
+
+This almost always improves:
+- rendering stability
+- reader comprehension
+- social-post readability
+- iteration speed
+
+If the user wants a LinkedIn post, article image, slide, or executive-friendly diagram, bias strongly toward multiple smaller sub-diagrams.
 
 ---
 
 # PLANTUML DEFAULTS
 
-!theme plain  
-skinparam backgroundColor #FEFDF6  
-skinparam defaultFontName Arial  
-skinparam RoundCorner 10  
-skinparam shadowing false  
+PlantUML is now the preferred default for architecture and agent-system diagrams.
+
+Start with:
+- @startuml
+- !theme plain
+- skinparam backgroundColor #FEFDF6
+- skinparam defaultFontName Arial
+- skinparam RoundCorner 10
+- skinparam shadowing false
+- skinparam packageStyle rectangle
+
+Safe structure that renders reliably:
+- rectangle \"Label\" as alias #Color
+- package \"Group\" #Color { ... }
+- simple arrows between aliases
+- optional legend right
+- optional stereotypes like <<Agent>>
+- left to right direction for most architecture/runtime diagrams
+
+Preferred node patterns:
+- rectangle \"Planner\" <<Agent>> as planner #B2EBF2
+- rectangle \"Tool Execution\" as tools #FFF9C4
+- package \"Memory\" #F3E5F5 { ... }
+
+PlantUML reliability rules:
+- use short aliases
+- keep packages shallow
+- prefer rectangles and packages over fancy UML shapes unless required
+- keep legends compact
+- keep labels short
+- keep one main spine with a few side branches
+
+Avoid when not necessary:
+- external includes
+- sprites and icon libraries
+- complex macros
+- deeply nested packages
+- large note blocks
+- crowded C4 diagrams for social content
+- overly clever skinparam tricks
+
+---
+
+# GRAPHVIZ GUIDELINES
+
+Graphviz is now secondary, not default.
+
+Use it when:
+- the user explicitly asks for graphviz
+- the diagram genuinely needs automatic ranking/clustering across many grouped nodes
+- PlantUML would become too rigid or too manual
+
+Graphviz defaults:
+- compound=true
+- splines=true
+- nodesep=0.6
+- ranksep=0.8
+- pad=0.4
+- margin=0.2
+
+Never use:
+- splines=ortho
+
+Graphviz stability rules:
+- prefer node-to-node edges
+- avoid cluster-to-cluster edges
+- avoid long edge labels
+- avoid very large clusters
+- break up dense graphs into multiple diagrams
+
+If edges or labels start overlapping, do not keep forcing the layout. Split the diagram.
+
+---
+
+# D2 GUIDELINES
+
+Use D2 mainly for very simple linear pipelines.
+
+Defaults:
+- direction: right or down
+- style.border-radius: 10
+- style.bold: true
+
+If the pipeline starts to branch heavily, switch to PlantUML.
+
+---
+
+# MERMAID GUIDELINES
+
+Use Mermaid for quick documentation flowcharts.
+Do not use it for dense architecture diagrams if PlantUML would be clearer.
+
+---
+
+# PRE-RENDER REASONING STEP
+
+Before generating any diagram:
+1. identify the main components
+2. identify the main spine or reading path
+3. decide whether this should be one diagram or several
+4. keep only the components needed for the current diagram's story
+5. choose the simplest format that will render cleanly
+6. add title / legend / numbering only if they improve comprehension
 
 ---
 
 # BEHAVIOR RULES
 
-1. State the format chosen and a one-line reason (unless user specified format).
-2. Render the diagram immediately.
-3. If syntax fails, fix it and retry automatically.
-4. Always provide the preview URL after rendering.
-5. When iterating, modify only the requested parts.
-6. For large architectures, prefer multiple smaller diagrams rather than one dense diagram.
+1. State the chosen format and one-line reason unless the user fixed the format.
+2. Render immediately.
+3. If syntax fails, simplify and retry automatically.
+4. Prefer PlantUML over Graphviz for architecture diagrams unless there is a strong reason not to.
+5. For public-facing diagrams, prefer simpler layouts over maximum fidelity.
+6. If a diagram becomes crowded, proactively split it into smaller diagrams.
+7. When the user asks for Excalidraw-style output, call get_excalidraw_preferences first.
 
 ---
 
 # RENDERING STABILITY PRINCIPLES
 
 Avoid:
-
-• splines=ortho  
-• excessive invisible edges  
-• cluster-to-cluster edges  
-• long edge labels  
-• deeply nested clusters  
+- dense all-in-one diagrams
+- deep nesting
+- long edge labels
+- fancy features when plain rectangles work
+- Graphviz overuse for diagrams better expressed in PlantUML
 
 Prefer:
+- one clear main spine
+- a few meaningful side branches
+- small legends
+- simple rectangles and packages
+- multiple focused diagrams over one overloaded diagram
+- PlantUML for readable architecture storytelling
 
-• node-to-node edges  
-• layered architecture layouts  
-• balanced cluster sizes  
-• forward flow diagrams  
-• smooth spline routing  
+Following these guidelines improves both Kroki reliability and reader comprehension.
+`;
 
-Following these guidelines ensures diagrams render consistently across Kroki and Graphviz.
+const EXCALIDRAW_INSTRUCTIONS = `\
+Use this guide only when the user explicitly wants Excalidraw, a hand-drawn whiteboard style, camera-guided animation, restoreCheckpoint flows, or delete-based transformations.
+
+# WHEN TO USE EXCALIDRAW
+
+Use Excalidraw when the goal is:
+- sketch-like storytelling
+- stepwise reveal with cameraUpdate
+- before/after transformations
+- animated build-up of an explanation
+- a whiteboard feel rather than a polished architecture plate
+
+Do not default to Excalidraw for normal architecture diagrams. Prefer PlantUML first.
+
+# CORE ELEMENT RULES
+
+Required on all drawn elements:
+- type
+- id (unique string)
+- x
+- y
+- width
+- height
+
+Prefer labeled shapes over separate text whenever possible.
+Example:
+{ \"type\": \"rectangle\", \"id\": \"r1\", \"x\": 100, \"y\": 100, \"width\": 200, \"height\": 80, \"label\": { \"text\": \"Planner\", \"fontSize\": 20 } }
+
+Use standalone text only for:
+- titles
+- subtitles
+- annotations
+
+# COLOR PALETTE
+
+Primary colors:
+- Blue #4a9eed
+- Amber #f59e0b
+- Green #22c55e
+- Red #ef4444
+- Purple #8b5cf6
+- Pink #ec4899
+- Cyan #06b6d4
+- Lime #84cc16
+
+Pastel fills:
+- Light Blue #a5d8ff
+- Light Green #b2f2bb
+- Light Orange #ffd8a8
+- Light Purple #d0bfff
+- Light Red #ffc9c9
+- Light Yellow #fff3bf
+- Light Teal #c3fae8
+- Light Pink #eebefa
+
+Background zones with opacity 30:
+- Blue zone #dbe4ff for UI / frontend
+- Purple zone #e5dbff for logic / agent layer
+- Green zone #d3f9d8 for data / tool layer
+
+# CAMERA AND SIZING
+
+Always start with a cameraUpdate as the first element.
+Use only 4:3 cameras:
+- 400x300
+- 600x450
+- 800x600
+- 1200x900
+- 1600x1200
+
+Recommended defaults:
+- 800x600 for a standard full diagram
+- 600x450 for a focused section
+
+Font sizes:
+- minimum 16 for body labels
+- minimum 20 for titles
+- minimum 14 only for secondary annotations
+
+Minimum labeled shape size:
+- 120x60
+
+Leave 20–30px gaps between elements.
+Prefer fewer, larger elements over many tiny ones.
+
+# DRAWING ORDER
+
+Array order is z-order and streaming order.
+Emit progressively:
+- background zones
+- shape
+- its label
+- its arrows
+- next shape
+
+Good pattern:
+- cameraUpdate
+- zone
+- node 1
+- node 2
+- arrow 1
+- node 3
+- arrow 2
+
+Do not emit:
+- all rectangles first
+- all texts second
+- all arrows last
+
+# ARROWS AND BINDINGS
+
+Use labeled arrows for relationship text.
+Keep labels short.
+Use bindings where possible:
+- right [1, 0.5]
+- left [0, 0.5]
+- top [0.5, 0]
+- bottom [0.5, 1]
+
+# TITLES, LEGENDS, NUMBERING
+
+Add a title for public-facing diagrams.
+Use standalone text for titles.
+
+Add a small legend only if colors or zones carry semantic meaning.
+Keep legends compact.
+
+Use numbering only when order matters.
+For Excalidraw, numbering usually works best inside labels or nearby small notes, not on every arrow.
+
+# CHECKPOINTS AND TRANSFORMS
+
+Use restoreCheckpoint when continuing from prior state.
+Use delete to transform diagrams in place.
+Never reuse deleted ids.
+
+Excalidraw is especially strong for:
+- animated transformations
+- before/after comparisons
+- walkthrough diagrams that reveal one section at a time
+
+# DARK MODE
+
+If the user asks for dark mode:
+- place a very large dark background rectangle first
+- use light text and brighter strokes
+- never use low-contrast gray text on dark backgrounds
+
+# PRACTICAL CANOPY GUIDANCE
+
+For Canopy specifically:
+- use Excalidraw only when the user wants a hand-drawn feel or staged reveal
+- otherwise prefer PlantUML for architecture clarity
+- keep the scene readable in inline preview, not just fullscreen
+- use camera moves to guide attention rather than making one giant scene
 `;
 
 /**
@@ -1132,11 +1236,25 @@ server.registerTool(
   "get_diagram_preferences",
   {
     description:
-      "Returns the diagram style guide and format selection rules to apply when generating diagrams. Call this at the start of any diagram-related conversation.",
+      "Returns the main diagram style guide and format selection rules to apply when generating diagrams. Call this at the start of any diagram-related conversation unless you specifically need the Excalidraw guide.",
     inputSchema: z.object({}),
   },
   async () => ({
     content: [{ type: "text", text: buildInstructions() }],
+  }),
+);
+
+// ------ get_excalidraw_preferences ------------------------------------------
+
+server.registerTool(
+  "get_excalidraw_preferences",
+  {
+    description:
+      "Returns the Excalidraw-specific design guide for hand-drawn diagrams, camera-guided reveals, restoreCheckpoint flows, and delete-based transformations.",
+    inputSchema: z.object({}),
+  },
+  async () => ({
+    content: [{ type: "text", text: EXCALIDRAW_INSTRUCTIONS }],
   }),
 );
 
