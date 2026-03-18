@@ -1,0 +1,64 @@
+@startuml
+  !theme plain
+  !option handwritten true
+  title From Chat to Executable Systems
+
+  left to right direction
+
+  skinparam backgroundColor #FEFDF6
+  skinparam defaultFontName Arial
+  skinparam shadowing false
+  skinparam packageStyle rectangle
+  skinparam RoundCorner 12
+  skinparam ArrowColor #444444
+  skinparam ArrowThickness 1.6
+  skinparam ArrowFontColor #444444
+  skinparam rectangle {
+    BorderThickness 1.4
+    FontSize 12
+    FontStyle bold
+  }
+  skinparam package {
+    BorderThickness 2
+    FontSize 13
+    FontStyle bold
+  }
+  skinparam titleFontSize 18
+  skinparam titleFontStyle bold
+  skinparam note {
+    BorderThickness 1
+    FontSize 10
+    BackgroundColor #FEFDF6
+  }
+
+  rectangle "Prompt +\nMaterials" as input #FFFFFF
+  rectangle "Plan" as plan #FFF9C4
+  rectangle "Structured Scenes\n(typed steps + actions)" as scenes #E1BEE7
+
+  package "Runtime Execution" as runtime #BBDEFB {
+    rectangle "Playback" as playback #E3F2FD
+    rectangle "Actions" as actions #E3F2FD
+    rectangle "Agents" as agents #E3F2FD
+
+    playback --> actions
+    actions --> agents
+    agents --> playback
+  }
+
+  rectangle "Interactive\nExperience" as experience #FFE0B2
+
+  input --> plan
+  plan --> scenes
+  scenes --> runtime
+  runtime --> experience
+
+  note bottom of runtime
+  State machine + action execution + agent loop
+  end note
+
+  note bottom of experience
+  Traditional: Prompt -> Response -> UI
+  OpenMAIC: Prompt -> Plan -> Execute -> Experience
+  end note
+
+@enduml

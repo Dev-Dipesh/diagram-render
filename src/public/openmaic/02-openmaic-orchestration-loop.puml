@@ -1,0 +1,67 @@
+@startuml
+!theme plain
+title OpenMAIC Live Orchestration Loop
+
+left to right direction
+
+skinparam backgroundColor #FEFDF6
+skinparam defaultFontName Arial
+skinparam RoundCorner 10
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam ArrowThickness 1.5
+skinparam rectangle {
+  BorderThickness 1
+}
+skinparam package {
+  BorderThickness 2
+}
+skinparam stereotypeFontStyle bold
+
+rectangle "Stage Runtime State\ncurrent scene, whiteboard,\nand lesson mode" as store_state #E1BEE7
+rectangle "Conversation State\nmessage history and\nwho already spoke" as convo_state #E1BEE7
+
+package "Client Session Loop" #C8E6C9 {
+  rectangle "Session Loop\nmanages each live turn" as sessions #E8F5E9
+  rectangle "Event Stream Parser\nreads server events" as sse #E8F5E9
+  rectangle "Pacing Buffer\nreveals speech and dispatches actions" as buffer #E8F5E9
+}
+
+package "Stateless Server Turn" #B2EBF2 {
+  rectangle "Chat Entry\nreceives full turn state" as chat_api #E0F7FA
+  rectangle "Director Loop\nchooses who should speak next" as director #E0F7FA
+  rectangle "Agent Response\nproduces speech and actions together" as agent_generate #E0F7FA
+  rectangle "Turn Context Builder\ninjects scene and role constraints" as prompts #E0F7FA
+}
+
+package "Execution Side Effects" #BBDEFB {
+  rectangle "Action Engine\nvisual effects, whiteboard,\nand media playback" as action_engine #E3F2FD
+  rectangle "Roundtable UI\nspeech bubbles and speaker state" as roundtable #E3F2FD
+}
+
+convo_state --> sessions : 1. request turn
+store_state --> sessions : context
+sessions --> chat_api : 2. send turn
+chat_api --> director : 3. route
+director --> prompts : 4. prepare
+prompts --> agent_generate : 5. invoke
+agent_generate --> chat_api : 6. stream
+chat_api --> sse : 7. events
+sse --> buffer : 8. parse
+buffer --> roundtable : 9. reveal speech
+buffer --> action_engine : 10. execute actions
+buffer --> convo_state : 11. update memory
+buffer --> store_state : 12. update lesson state
+convo_state ..> sessions : next turn
+
+legend right
+|= Diagram key |= Why it matters |
+| Stage Runtime State | Live answers are grounded in the current lesson state |
+| Conversation State | The server stays stateless by receiving prior turn memory each time |
+| Pacing Buffer | Raw model output is slowed into a classroom-like interaction |
+| Director Loop | Multi-agent means guided turn-taking, not random persona chatter |
+| Action Engine | The same live turn can speak, draw, point, and update the UI |
+endlegend
+
+@enduml

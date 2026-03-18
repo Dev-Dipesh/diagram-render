@@ -1,0 +1,55 @@
+@startuml
+!theme plain
+title OpenMAIC Pattern Shift
+
+left to right direction
+
+skinparam backgroundColor #FEFDF6
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam RoundCorner 10
+skinparam defaultTextAlignment center
+skinparam ArrowColor #444444
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #333333
+skinparam rectangle {
+  BorderThickness 1
+}
+skinparam package {
+  BorderThickness 2
+}
+skinparam PackageFontSize 13
+skinparam PackageFontStyle bold
+skinparam RectangleFontSize 12
+skinparam RectangleFontStyle bold
+skinparam TitleFontSize 15
+skinparam TitleFontStyle bold
+
+package "Traditional LLM App" as traditional #F5F5F5 {
+  rectangle "Prompt" as t1 #FFFFFF
+  rectangle "Response" as t2 #FFE0B2
+  rectangle "UI" as t3 #FFE0B2
+  t1 --> t2
+  t2 --> t3
+}
+
+package "OpenMAIC" as openmaic #FFF9C4 {
+  rectangle "Prompt + Materials" as o1 #FFFFFF
+  rectangle "Plan\nSceneOutline[]" as o2 #FFFDE7
+  rectangle "Structured Scenes\nScene[]" as o3 #F3E5F5
+  rectangle "Runtime Execution\nPlayback + Actions +\nAgent Loop" as o4 #E3F2FD
+  rectangle "Interactive Experience" as o5 #FFF3E0
+  o1 --> o2
+  o2 --> o3
+  o3 --> o4
+  o4 --> o5
+}
+
+legend bottom
+|= Contrast |= Architecture |
+| Traditional | prompt -> response -> UI |
+| OpenMAIC | prompt -> plan -> typed scenes -> runtime -> experience |
+endlegend
+
+@enduml

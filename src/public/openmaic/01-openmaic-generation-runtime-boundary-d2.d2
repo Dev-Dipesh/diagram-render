@@ -1,0 +1,223 @@
+direction: down
+
+vars: {
+  bg: "#FEFDF6"
+  edge: "#444444"
+  input_fill: "#FFFFFF"
+  input_stroke: "#AAAAAA"
+  gen_fill: "#FFF9C4"
+  gen_inner: "#FFFDE7"
+  gen_stroke: "#F9A825"
+  store_fill: "#E1BEE7"
+  store_inner: "#F3E5F5"
+  store_stroke: "#6A1B9A"
+  run_fill: "#BBDEFB"
+  run_inner: "#E3F2FD"
+  run_stroke: "#1565C0"
+}
+
+title: "OpenMAIC Generation and Runtime Boundary"
+
+classes: {
+  input: {
+    shape: rectangle
+    style: {
+      fill: ${input_fill}
+      stroke: ${input_stroke}
+      font-color: "#333333"
+      border-radius: 10
+      shadow: false
+      font-size: 20
+      bold: true
+    }
+  }
+  genbox: {
+    shape: rectangle
+    style: {
+      fill: ${gen_inner}
+      stroke: ${gen_stroke}
+      font-color: "#5D4037"
+      border-radius: 10
+      shadow: false
+      font-size: 18
+      bold: true
+    }
+  }
+  storebox: {
+    shape: rectangle
+    style: {
+      fill: ${store_inner}
+      stroke: ${store_stroke}
+      font-color: "#4A1070"
+      border-radius: 10
+      shadow: false
+      font-size: 18
+      bold: true
+    }
+  }
+  runbox: {
+    shape: rectangle
+    style: {
+      fill: ${run_inner}
+      stroke: ${run_stroke}
+      font-color: "#0D3C6E"
+      border-radius: 10
+      shadow: false
+      font-size: 18
+      bold: true
+    }
+  }
+  keybox: {
+    shape: rectangle
+    style: {
+      fill: "#F5F5F5"
+      stroke: "#9E9E9E"
+      font-color: "#555555"
+      border-radius: 10
+      shadow: false
+      font-size: 16
+    }
+  }
+}
+
+input: "User Input\nprompt + files + optional web search" {
+  class: input
+}
+
+generation: "Generation Time" {
+  style: {
+    fill: ${gen_fill}
+    stroke: ${gen_stroke}
+    font-color: "#5D4037"
+    border-radius: 10
+    shadow: false
+    font-size: 20
+    bold: true
+  }
+
+  preview: "Generation Preview\nworking area for planning\nand first-scene bootstrapping" {
+    class: genbox
+  }
+  outlines: "Outline Stream\nlesson plan emitted as\nordered scene blueprints" {
+    class: genbox
+  }
+  content: "Scene Content\neach blueprint becomes\nslides, quiz, simulation, or project" {
+    class: genbox
+  }
+  actions: "Scene Actions\nspeaking, pointing,\nwhiteboard, and discussion script" {
+    class: genbox
+  }
+}
+
+artifact: "Structured Artifact" {
+  style: {
+    fill: ${store_fill}
+    stroke: ${store_stroke}
+    font-color: "#4A1070"
+    border-radius: 10
+    shadow: false
+    font-size: 20
+    bold: true
+  }
+
+  stage: "Course Shell\ncourse identity and metadata" {
+    class: storebox
+  }
+  scenes: "Structured Scenes\nordered interactive lesson units" {
+    class: storebox
+  }
+}
+
+runtime: "Runtime Execution" {
+  style: {
+    fill: ${run_fill}
+    stroke: ${run_stroke}
+    font-color: "#0D3C6E"
+    border-radius: 10
+    shadow: false
+    font-size: 20
+    bold: true
+  }
+
+  playback: "Playback Engine\nwalks scene order and timing" {
+    class: runbox
+  }
+  action_engine: "Action Engine\nturns lesson script into visible behavior" {
+    class: runbox
+  }
+  renderers: "Scene Renderers\nslide / quiz / interactive / pbl" {
+    class: runbox
+  }
+  live_chat: "Live Chat Path\nquestion answering and discussion handoff" {
+    class: runbox
+  }
+}
+
+persistence: "Persistence" {
+  style: {
+    fill: ${store_fill}
+    stroke: ${store_stroke}
+    font-color: "#4A1070"
+    border-radius: 10
+    shadow: false
+    font-size: 20
+    bold: true
+  }
+
+  client_store: "Client Store\nZustand + IndexedDB" {
+    class: storebox
+  }
+  server_store: "Server Classroom\nAPI storage and JSON on disk" {
+    class: storebox
+  }
+}
+
+key: "Diagram Key\n\nOutline Stream: the lesson is planned before it is built\n\nScene Content: each blueprint becomes one learning unit\n\nScene Actions: scenes carry behavior, not just content\n\nStructured Scenes: this is the reusable lesson artifact\n\nLive Chat Path: runtime can switch into live interaction" {
+  class: keybox
+}
+
+input -> generation.preview: "starts" {
+  style: {stroke: ${edge}}
+}
+generation.preview -> generation.outlines: "plan" {
+  style: {stroke: ${edge}}
+}
+generation.outlines -> generation.content: "expand" {
+  style: {stroke: ${edge}}
+}
+generation.content -> generation.actions: "script" {
+  style: {stroke: ${edge}}
+}
+generation.actions -> artifact.stage: "assemble" {
+  style: {stroke: ${edge}}
+}
+generation.actions -> artifact.scenes: "assemble" {
+  style: {stroke: ${edge}}
+}
+artifact.stage -> persistence.client_store: "save" {
+  style: {stroke: ${edge}}
+}
+artifact.scenes -> persistence.client_store: "save" {
+  style: {stroke: ${edge}}
+}
+artifact.stage -> persistence.server_store: "persist" {
+  style: {stroke: ${edge}}
+}
+artifact.scenes -> persistence.server_store: "persist" {
+  style: {stroke: ${edge}}
+}
+artifact.scenes -> runtime.playback: "load" {
+  style: {stroke: ${edge}}
+}
+runtime.playback -> runtime.action_engine: "execute" {
+  style: {stroke: ${edge}}
+}
+runtime.action_engine -> runtime.renderers: "update" {
+  style: {stroke: ${edge}}
+}
+runtime.renderers -> runtime.live_chat: "handoff" {
+  style: {stroke: ${edge}}
+}
+runtime.live_chat -> runtime.action_engine: "shared actions" {
+  style: {stroke: ${edge}}
+}

@@ -1,0 +1,78 @@
+@startuml
+!theme plain
+title OpenMAIC High-Level Architecture
+
+left to right direction
+
+skinparam backgroundColor #FEFDF6
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam RoundCorner 10
+skinparam defaultTextAlignment center
+skinparam ArrowColor #444444
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #333333
+skinparam rectangle {
+  BorderThickness 1
+}
+skinparam package {
+  BorderThickness 2
+}
+skinparam PackageFontSize 13
+skinparam PackageFontStyle bold
+skinparam RectangleFontSize 11
+skinparam RectangleFontStyle bold
+skinparam TitleFontSize 15
+skinparam TitleFontStyle bold
+skinparam LegendFontSize 10
+
+rectangle "1. User Input\nTopic, prompt,\nPDF, web context" as input #FFFFFF
+
+package "Generation Time" as gen #FFF9C4 {
+  rectangle "2. Outline Generator\nSceneOutline[]\nSSE planning stage" as outline #FFFDE7
+  rectangle "3. Scene Builder\ncontent + actions\nper outline" as builder #FFFDE7
+}
+
+package "Structured Artifact" as artifact #E1BEE7 {
+  rectangle "4. Classroom Model\nStage + Scene[] +\ntyped actions" as classroom #F3E5F5
+}
+
+package "Execution Runtime" as runtime #BBDEFB {
+  rectangle "5. Playback Engine\nscene/action state machine" as playback #E3F2FD
+  rectangle "6. Action Engine\nspeech, spotlight,\nwhiteboard, discussion" as action #E3F2FD
+}
+
+package "Agent Orchestration" as orchestration_pkg #B2EBF2 {
+  rectangle "LangGraph Director\nturn routing + live chat" as orchestration #E0F7FA
+}
+
+package "Interactive Experience" as exp #FFE0B2 {
+  rectangle "7. Scene Renderers\nslides, quiz,\ninteractive, PBL" as renderers #FFF3E0
+  rectangle "8. Live UI\nchat, whiteboard,\nvoice surfaces" as liveui #FFF3E0
+}
+
+rectangle "Export + Persistence\nPPTX, HTML ZIP,\nlocal/server classroom storage" as outputs #E1BEE7
+
+input --> outline : plan
+outline --> builder : expand
+builder --> classroom : assemble
+classroom --> playback : load
+playback --> action : execute
+action --> renderers : update
+action --> liveui : drive
+liveui --> orchestration : user turns
+orchestration --> action : actions
+renderers --> outputs : export
+classroom --> outputs : persist
+
+legend right
+|= Role |= Meaning |
+|<#FFF9C4>| Generation |
+|<#E1BEE7>| Structured artifact / persistence |
+|<#BBDEFB>| Runtime execution |
+|<#B2EBF2>| Orchestration |
+|<#FFE0B2>| User-facing experience |
+endlegend
+
+@enduml

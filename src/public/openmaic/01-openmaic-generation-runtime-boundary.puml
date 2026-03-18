@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+title OpenMAIC Generation and Runtime Boundary
+
+left to right direction
+
+skinparam backgroundColor #FEFDF6
+skinparam defaultFontName Arial
+skinparam RoundCorner 10
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam ArrowThickness 1.5
+skinparam rectangle {
+  BorderThickness 1
+}
+skinparam package {
+  BorderThickness 2
+}
+skinparam stereotypeFontStyle bold
+
+rectangle "User Input\nprompt + files + optional web search" as input #FFFFFF
+
+package "Generation Time" #FFF9C4 {
+  rectangle "Generation Preview\nworking area for planning\nand first-scene bootstrapping" as preview #FFFDE7
+  rectangle "Outline Stream\nlesson plan emitted as\nordered scene blueprints" as outlines #FFFDE7
+  rectangle "Scene Content\neach blueprint becomes\nslides, quiz, simulation, or project" as content #FFFDE7
+  rectangle "Scene Actions\nspeaking, pointing,\nwhiteboard, and discussion script" as actions #FFFDE7
+}
+
+package "Structured Artifact" #E1BEE7 {
+  rectangle "Course Shell\ncourse identity and metadata" as stage #F3E5F5
+  rectangle "Structured Scenes\nordered interactive lesson units" as scenes #F3E5F5
+}
+
+package "Runtime Execution" #BBDEFB {
+  rectangle "Playback Engine\nwalks scene order and timing" as playback #E3F2FD
+  rectangle "Action Engine\nturns lesson script into visible behavior" as action_engine #E3F2FD
+  rectangle "Scene Renderers\nslide / quiz / interactive / pbl" as renderers #E3F2FD
+  rectangle "Live Chat Path\nquestion answering and discussion handoff" as live_chat #E3F2FD
+}
+
+package "Persistence" #E1BEE7 {
+  rectangle "Client Store\nZustand + IndexedDB" as client_store #F3E5F5
+  rectangle "Server Classroom\n/api/classroom\nJSON on disk" as server_store #F3E5F5
+}
+
+input --> preview : starts
+preview --> outlines : plan
+outlines --> content : expand
+content --> actions : script
+actions --> stage : assemble
+actions --> scenes : assemble
+stage --> client_store : save
+scenes --> client_store : save
+stage --> server_store : persist
+scenes --> server_store : persist
+scenes --> playback : load
+playback --> action_engine : execute
+action_engine --> renderers : update
+renderers --> live_chat : handoff
+live_chat --> action_engine : shared actions
+
+legend right
+|= Diagram key |= Why it matters |
+| Outline Stream | The system plans the lesson before building it |
+| Scene Content | One plan item becomes one concrete learning unit |
+| Scene Actions | Scenes carry behavior, not just static content |
+| Structured Scenes | This is the reusable lesson artifact handed to runtime |
+| Live Chat Path | Runtime can switch from playback into live interaction |
+endlegend
+
+@enduml

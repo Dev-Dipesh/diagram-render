@@ -1,0 +1,68 @@
+@startuml
+!theme plain
+title OpenMAIC State and Storage Topology
+
+left to right direction
+
+skinparam backgroundColor #FEFDF6
+skinparam defaultFontName Arial
+skinparam RoundCorner 10
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam ArrowThickness 1.5
+skinparam rectangle {
+  BorderThickness 1
+}
+skinparam package {
+  BorderThickness 2
+}
+
+package "In-Memory Runtime" #BBDEFB {
+  rectangle "Stage Store\ncourse, scenes,\nchat, and generation state" as stage_store #E3F2FD
+  rectangle "Canvas Store\nvisual effects, whiteboard state,\nand playback UI" as canvas_store #E3F2FD
+  rectangle "Media Task Store\ntracks image and video jobs" as media_store #E3F2FD
+  rectangle "Settings Store\nmodel, provider,\nand UI preferences" as settings_store #E3F2FD
+}
+
+package "Client Persistence" #E1BEE7 {
+  rectangle "Local Database\nbrowser-side durable storage" as dexie #F3E5F5
+  rectangle "Stages + Scenes\nsaved classroom state" as stages_table #F3E5F5
+  rectangle "Scene Blueprints\nresume interrupted generation" as outlines_table #F3E5F5
+  rectangle "Audio Files\npre-generated narration" as audio_table #F3E5F5
+  rectangle "Media Files\ngenerated images and posters" as media_table #F3E5F5
+  rectangle "Generated Agents\nprofiles bound to one course" as agents_table #F3E5F5
+  rectangle "Chat + Playback State\ncontinue live sessions and lesson position" as chat_table #F3E5F5
+}
+
+package "Server Persistence" #E1BEE7 {
+  rectangle "data/classrooms/*.json" as classroom_json #F3E5F5
+  rectangle "data/classroom-jobs/*.json" as jobs_json #F3E5F5
+}
+
+stage_store --> dexie : 1. save / load
+canvas_store --> stage_store : derives from
+media_store --> dexie : 2. restore / persist
+settings_store ..> stage_store : config
+
+dexie --> stages_table
+dexie --> outlines_table
+dexie --> audio_table
+dexie --> media_table
+dexie --> agents_table
+dexie --> chat_table
+
+stage_store --> classroom_json : 3. optional server persist
+classroom_json --> stage_store : 4. classroom reload
+jobs_json --> classroom_json : 5. async generation output
+
+legend right
+|= Diagram key |= Why it matters |
+| Local Database | Most classroom state survives refresh without a backend dependency |
+| Scene Blueprints | Generation can pause and resume instead of restarting from scratch |
+| Generated Agents | Personas are attached to one course, not shared globally |
+| Media Files | Generated assets are stored separately from lesson structure |
+| Server Persistence | A second storage path exists for hosted or shareable classrooms |
+endlegend
+
+@enduml

@@ -760,22 +760,40 @@ Add a small legend when at least one of these is true:
 - colors carry semantic meaning
 - stereotypes like <<Agent>> appear
 - there are multiple node classes and the distinction is not obvious
+- a few nodes are conceptually important but hard to explain inside the node label
 
 Legend rules:
 - keep it to 3–5 rows
 - place it on the right or bottom
 - do not let the legend become larger than the diagram itself
+- prefer “why this matters” or “how to read this” over repeating color names
+- do not waste legend space on information already obvious from cluster titles
+- avoid legends that merely restate the visible labels
+- if the reader is likely to ask “what does this box actually do?”, use the legend to answer that
+- if colors are already obvious from package titles, use the legend for semantics, reading hints, or node purpose instead
+
+Self-sustaining diagram rules:
+- the diagram should stand on its own without requiring the reader to inspect source code
+- avoid file paths, repo folders, route names, and implementation filenames unless explicitly requested
+- avoid labels like `foo.ts`, `/api/bar`, `lib/x`, or regex-like identifiers in public-facing diagrams
+- prefer architecture meaning over code provenance
+- if a node is non-obvious, explain it with a short subtitle in the node or a compact legend row
+- include code-level names only when the user explicitly wants implementation mapping or when source attribution is the point of the diagram
 
 Use numbering only when order matters.
 Good cases:
 - ordered runtime stages
 - stepwise data flow
 - escalation / fallback path
+- diagrams where the reader may not know where to start
 
 Numbering rules:
 - prefer 3–7 major steps
 - number either node labels or edge labels, not both
 - do not number every single edge in a dense diagram
+- for complex architecture diagrams, prefer numbering the main arrows of the primary reading path
+- use numbering sparingly to create an obvious entry point, not to annotate every relationship
+- if a reader could plausibly ask “where should I start?”, add light numbering to the main path
 
 ---
 
@@ -915,6 +933,8 @@ Safe structure that renders reliably:
 - optional legend right
 - optional stereotypes like <<Agent>>
 - left to right direction for most architecture/runtime diagrams
+- optional `skinparam rectangle { BorderThickness 1 }`
+- optional `skinparam package { BorderThickness 2 }`
 
 Preferred node patterns:
 - rectangle \"Planner\" <<Agent>> as planner #B2EBF2
@@ -928,6 +948,21 @@ PlantUML reliability rules:
 - keep legends compact
 - keep labels short
 - keep one main spine with a few side branches
+- prefer plain color literals like `#FFF9C4` over advanced inline style syntax
+- prefer simple labels over markup-heavy labels
+- if the diagram is explanatory, put the explanation in the node text or legend, not in code-level footnotes
+- when a node needs more context, use one short subtitle line rather than a long note block
+- if a diagram is meant for understanding rather than implementation lookup, bias toward plain English labels
+
+PlantUML syntax safety rules:
+- avoid semicolon-based inline style fragments such as `#color;line:...;text:...` unless already proven to work in the current renderer
+- avoid features that differ across PlantUML versions unless necessary
+- avoid `skinparam handwritten true`; use `!option handwritten true` only when handwritten mode is explicitly wanted
+- avoid bracket-heavy labels and code-like syntax when natural language works
+- avoid large note blocks when a compact legend or subtitle will do
+- after a syntax failure, simplify toward rectangles, packages, simple arrows, and plain color literals
+- if a diagram must be robust across environments, bias toward the same minimal syntax used in known-good local examples
+- when introducing a new styling trick, prefer testing a small safe subset first rather than applying it across the whole diagram
 
 Avoid when not necessary:
 - external includes
@@ -982,6 +1017,26 @@ Defaults:
 
 If the pipeline starts to branch heavily, switch to PlantUML.
 
+D2 syntax safety rules:
+- prefer a small, conservative subset of D2 syntax
+- use direct style properties such as `font-size`, `font-color`, and `bold`
+- do not use nested font objects like `font: { family: ..., size: ..., bold: ... }`
+- do not use `color` when the intent is text color; use `font-color`
+- do not assume font-family is supported in D2 style blocks
+- if a D2 diagram fails to render, simplify toward direct nodes, containers, direct arrows, and flat style properties
+
+Safe D2 style examples:
+- `font-size: 18`
+- `font-color: "#333333"`
+- `bold: true`
+- `border-radius: 10`
+- `shadow: false`
+
+Avoid in D2 unless already proven locally:
+- `font: { family: "Arial", size: 18, bold: true }`
+- `color: "#333333"` for text color
+- complex variable indirection when a literal works
+
 ---
 
 # MERMAID GUIDELINES
@@ -1000,6 +1055,7 @@ Before generating any diagram:
 4. keep only the components needed for the current diagram's story
 5. choose the simplest format that will render cleanly
 6. add title / legend / numbering only if they improve comprehension
+7. make the diagram self-sufficient: a technically literate reader should not need the codebase open to follow it
 
 ---
 
@@ -1012,6 +1068,7 @@ Before generating any diagram:
 5. For public-facing diagrams, prefer simpler layouts over maximum fidelity.
 6. If a diagram becomes crowded, proactively split it into smaller diagrams.
 7. When the user asks for Excalidraw-style output, call get_excalidraw_preferences first.
+8. For explanatory architecture diagrams, optimize for self-sufficiency: the diagram should answer the first-order “what is this?” questions on its own.
 
 ---
 

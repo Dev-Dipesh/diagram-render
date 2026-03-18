@@ -1,0 +1,77 @@
+@startuml
+!theme plain
+title OpenMAIC Trust Boundaries and Security Posture
+
+left to right direction
+
+skinparam backgroundColor #FEFDF6
+skinparam defaultFontName Arial
+skinparam RoundCorner 10
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam ArrowThickness 1.5
+skinparam rectangle {
+  BorderThickness 1
+}
+skinparam package {
+  BorderThickness 2
+}
+
+package "User-Controlled Inputs" #FFFFFF {
+  rectangle "Prompt + files" as user_input #FFFFFF
+  rectangle "Optional provider endpoint\nand client credentials" as client_provider #FFFFFF
+  rectangle "Remote media URL\nfor proxy fetch" as remote_url #FFFFFF
+}
+
+package "Server Trust Boundary" #C8E6C9 {
+  rectangle "Request validation\nrequired fields + type checks" as validation #E8F5E9
+  rectangle "Provider resolution\nclient override or server config" as provider_resolution #E8F5E9
+  rectangle "SSRF Guard\nblocks internal and private network targets" as ssrf #E8F5E9
+  rectangle "Proxy fetch\nno redirects allowed" as proxy_fetch #E8F5E9
+  rectangle "Classroom ID validation\nrestricts readable storage keys" as id_validation #E8F5E9
+}
+
+package "Secrets and Providers" #B2EBF2 {
+  rectangle "Server-side provider config\nmanaged secrets and base URLs" as server_config #E0F7FA
+  rectangle "External AI providers\nmodels, speech, parsing,\nsearch, image, video" as providers #E0F7FA
+}
+
+package "Persisted Assets" #E1BEE7 {
+  rectangle "IndexedDB local data" as indexeddb #F3E5F5
+  rectangle "JSON classroom files" as json_files #F3E5F5
+}
+
+package "Residual Risks" #F8BBD0 {
+  rectangle "Prompt injection through\nPDF / web context" as prompt_injection #FFCDD2
+  rectangle "Client-supplied provider URLs\nexpand attack surface" as url_risk #FFCDD2
+  rectangle "Local browser persistence\nstores course artifacts and media" as local_data_risk #FFCDD2
+  rectangle "Server-side files are durable\nunless explicitly cleaned" as retention_risk #FFCDD2
+}
+
+user_input --> validation : 1. enters
+client_provider --> provider_resolution : 2. may override
+remote_url --> ssrf : 3. validate
+ssrf --> proxy_fetch : 4. allow only safe
+provider_resolution --> server_config : 5. fallback
+server_config --> providers : 6. credentials
+validation --> providers : 7. invoke
+id_validation --> json_files : 8. gate reads
+providers --> indexeddb : 9. client persistence
+providers --> json_files : 10. server persistence
+
+user_input ..> prompt_injection
+client_provider ..> url_risk
+indexeddb ..> local_data_risk
+json_files ..> retention_risk
+
+legend right
+|= Diagram key |= Why it matters |
+| Provider resolution | Some deployments allow user-supplied provider endpoints |
+| SSRF Guard | The system explicitly blocks internal network fetch targets |
+| Proxy fetch | Redirects are denied to reduce proxy-bypass tricks |
+| Residual Risks | Safety controls exist, but hostile content can still shape model behavior |
+| Persisted Assets | Data durability is a feature and also a governance concern |
+endlegend
+
+@enduml

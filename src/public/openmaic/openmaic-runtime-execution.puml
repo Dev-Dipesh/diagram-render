@@ -1,0 +1,71 @@
+@startuml
+!theme plain
+title OpenMAIC Runtime Execution Model
+
+left to right direction
+
+skinparam backgroundColor #FEFDF6
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam RoundCorner 10
+skinparam defaultTextAlignment center
+skinparam ArrowColor #444444
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #333333
+skinparam rectangle {
+  BorderThickness 1
+}
+skinparam package {
+  BorderThickness 2
+}
+skinparam PackageFontSize 13
+skinparam PackageFontStyle bold
+skinparam RectangleFontSize 11
+skinparam RectangleFontStyle bold
+skinparam TitleFontSize 15
+skinparam TitleFontStyle bold
+skinparam LegendFontSize 10
+
+rectangle "1. Scene Set\nScene[] with typed\ncontent + actions" as sceneset #E1BEE7
+
+package "Runtime Core" as core #BBDEFB {
+  rectangle "2. Playback Engine\nmode, scene index,\naction index" as playback #E3F2FD
+  rectangle "3. Action Engine\nexecute speech,\nwhiteboard, effects" as action #E3F2FD
+}
+
+package "Live Agent Path" as live #B2EBF2 {
+  rectangle "4. Director\nspeaker selection /\ncue user" as director #E0F7FA
+  rectangle "5. Agent Turn\nstream text + actions" as agentturn #E0F7FA
+}
+
+package "Presentation Surfaces" as surfaces #FFE0B2 {
+  rectangle "6. Scene Renderers\nslide, quiz,\ninteractive, PBL" as renderers #FFF3E0
+  rectangle "7. Chat Surface" as chat #FFF3E0
+  rectangle "8. Whiteboard + Voice" as whiteboard #FFF3E0
+}
+
+rectangle "User Question /\nDiscussion Join" as user #FFFFFF
+
+sceneset --> playback : load
+playback --> action : next action
+action --> renderers : effects
+action --> whiteboard : board/audio
+action --> director : discussion
+director --> agentturn : turn
+agentturn --> action : actions
+agentturn --> chat : speech
+user --> director : prompt
+chat --> user : dialogue
+renderers --> user : lesson
+whiteboard --> user : explanation
+
+legend right
+|= Color |= Runtime role |
+|<#E1BEE7>| Scene artifact |
+|<#BBDEFB>| Execute |
+|<#B2EBF2>| Orchestrate / route |
+|<#FFE0B2>| Output surface |
+endlegend
+
+@enduml
